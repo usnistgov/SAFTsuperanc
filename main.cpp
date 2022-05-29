@@ -181,27 +181,123 @@ public:
     auto build_expansions() {
         auto model = get_model(m);
         int Mnorm = 3;
+        // Convenience function to get the M-element norm
+        auto get_err = [Mnorm](const auto& ce) { return ce.coef().tail(Mnorm).norm() / ce.coef().head(Mnorm).norm(); };
         int max_refine_passes = 10; // As many as 2^max_refine_passes at end
-        int Q = 0; // Vapor quality, also the index to rhovec to be returned
-        auto f = [&](double Tred) {
+        
+        // The data type to contain the two expansions
+        struct ChebPair { ChebTools::ChebyshevExpansion rhoL, rhoV; };
+        std::vector<ChebPair> expansions;
+
+        /// A function to return liquid and vapor densities given temperature
+        /// All in tilde-reduced form
+        auto do_VLE = [&expansions, &model, this](double Tred) {
+
             // Temperature to real units
             auto Ttilde = Tred * this->Ttildec;
             auto T = Ttilde * epsilon_over_k_K;
-            
-            // Interpolate to get approximate solution for tilde-scaled densities
-            auto [rhotildeL, rhotildeV] = interpolate_tilde(Ttilde);
-            auto rhoL = rhotildeL / (N_A * pow(sigma_m, 3));
-            auto rhoV = rhotildeV / (N_A * pow(sigma_m, 3));
+
+            double rhotildeL, rhotildeV;
+            if (expansions.empty() || Tred < 0.8) {
+                // Interpolate from the rough values to get approximate solution for tilde-scaled densities
+                std::tie(rhotildeL, rhotildeV) = interpolate_tilde(Ttilde);
+            }
+            else {
+                // Use the set of expansions under development to estimate the values for densities
+                // This way the refinement of the expansions is manifested in the 
+
+                /// Return the index of the expansion that is desired
+                auto get_index = [&](double x, const auto& exs) {
+                    int iL = 0, iR = static_cast<int>(exs.size()) - 1, iM;
+                    while (iR - iL > 1) {
+                        iM = ChebTools::midpoint_Knuth(iL, iR);
+                        if (x >= exs[iM].rhoL.xmin()) {
+                            iL = iM;
+                        }
+                        else {
+                            iR = iM;
+                        }
+                    }
+                    return (x < exs[iL].rhoL.xmax()) ? iL : iR;
+                };
+                auto i = get_index(Tred, expansions);
+                auto t = (Tred - expansions[i].rhoL.xmin()) / (expansions[i].rhoL.xmax() - expansions[i].rhoL.xmin());
+                rhotildeL = expansions[i].rhoL.y_Clenshaw(Tred);
+                rhotildeV = expansions[i].rhoV.y_Clenshaw(Tred);
+                std::cout << Tred << " || " << rhotildeL << " || " << rhotildeV << " || " << t << std::endl;
+            }
+            auto rhoL = rhotildeL/(N_A*pow(sigma_m, 3));
+            auto rhoV = rhotildeV/(N_A*pow(sigma_m, 3));
 
             // Solve phase equilibria problem in extended precision
             auto rhovec = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoL, rhoV, 10).cast<double>();
-            std::cout << Tred << "::" << rhovec << std::endl;
-            // Return the desired solution
-            return rhovec[Q];
+            //std::cout << Tred << "::" << rhovec << std::endl;
+            // Return the desired solutions in tilde-reduced form
+            return (rhovec* (N_A * pow(sigma_m, 3))).eval();
         };
-        auto ces = ChebTools::ChebyshevExpansion::dyadic_splitting(12, f, Ttilde[0]/Ttildec, Ttilde.back()/Ttildec, Mnorm, 1e-12, max_refine_passes);
-        for (auto ce : ces) {
-            std::cout << "(" << ce.xmin() << "," << ce.xmax() << "): {" << ce.coef() << "}" << std::endl;
+
+        auto make_expansions = [&](const std::size_t N, double Tmin, double Tmax) -> ChebPair {
+            // Return liquid and vapor expansions
+            // 
+            // Node values in [-1, 1]
+            auto nodesn11 = ChebTools::get_CLnodes(N).array();
+            auto nodes = ((Tmax - Tmin) * nodesn11 + (Tmax + Tmin)) / 2;
+            // Densities of both phases at node values
+            Eigen::ArrayXd rhoLvals(nodes.size()), rhoVvals(nodes.size());
+            for (auto i = 0; i < nodes.size(); ++i) {
+                auto rhos = do_VLE(nodes[i]);
+                rhoLvals[i] = rhos[0];
+                rhoVvals[i] = rhos[1];
+            }
+            std::cout << rhoLvals << std::endl;
+            std::cout << rhoVvals << std::endl;
+            // Invert values to get coefficients and return the expansions
+            return ChebPair{ 
+                ChebTools::ChebyshevExpansion::factoryf(N, rhoLvals, Tmin, Tmax), 
+                ChebTools::ChebyshevExpansion::factoryf(N, rhoVvals, Tmin, Tmax) };
+        };
+        
+        int N = 12;
+        double tol = 1e-12;
+        double Tred_min = Ttilde.back() / Ttildec, Tred_max = Ttilde[0] / Ttildec;
+        expansions.emplace_back(make_expansions(N, Tred_min, Tred_max));
+
+        // Now enter into refinement passes
+        for (int refine_pass = 0; refine_pass < max_refine_passes; ++refine_pass) {
+            bool all_converged = true;
+            // Start at the right and move left because insertions will make the length increase
+            for (int iexpansion = static_cast<int>(expansions.size()) - 1; iexpansion >= 0; --iexpansion) {
+                auto& expan = expansions[iexpansion];
+                auto errL = get_err(expan.rhoL);
+                auto errV = get_err(expan.rhoV);
+                if (errL > tol || errV > tol) {
+                    // Splitting is required, do a dyadic split
+                    auto xmid = (expan.rhoL.xmin() + expan.rhoL.xmax()) / 2;
+                    auto newlefts = make_expansions(N, expan.rhoL.xmin(), xmid);
+                    auto newrights = make_expansions(N, xmid, expan.rhoL.xmax());
+
+                    // Function to check if any coefficients are invalid (evidence of a bad function value)
+                    auto all_coeffs_ok = [](const auto& v) {
+                        for (auto i = 0; i < v.size(); ++i) {
+                            if (!std::isfinite(v[i])) { return false; }
+                        }
+                        return true;
+                    };
+                    // Check if any coefficients are invalid, stop if so
+                    if (   !all_coeffs_ok(newlefts.rhoL.coef()) || !all_coeffs_ok(newrights.rhoL.coef()) 
+                        || !all_coeffs_ok(newlefts.rhoV.coef()) || !all_coeffs_ok(newrights.rhoV.coef())) {
+                        throw std::invalid_argument("At least one coefficient is non-finite");
+                    }
+                    std::swap(expan, newlefts);
+                    expansions.insert(expansions.begin() + iexpansion + 1, newrights);
+                    all_converged = false;
+                }
+            }
+            if (all_converged) { break; }
+        }        
+     
+        for (auto ex : expansions) {
+            std::cout << "(" << ex.rhoL.xmin() << "," << ex.rhoV.xmax() << "): {" << ex.rhoL.coef() << "}" << std::endl;
         }
     }
 };
@@ -211,11 +307,12 @@ int main(){
     // Build interpolation function for critical point temperature and density as a function of 1/m
     double Ttilde1 = 1.2757487256161069; // nondimensional temperature
     double rhotilde1 = 0.2823886223463809; // nondimensional density
-    Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(100, 1, 100);
+    Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(2, 1, 2);
     auto ccrough = CriticalPointsInterpolator(Ms, Ttilde1*epsilon_over_k_K, rhotilde1/(N_A*pow(sigma_m, 3)));
     ccrough.to_json("PCSAFT_crit_pts_interpolation.json");
 
-    for (double m : { 1,2,4,8,16,32,64 }) {
+    //for (double m : { 1,2,4,8,16,32,64 }) {
+    for (double m : { 1 }) {
         // Solve for the exact critical point for this value of m
         auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
         // Trace to build a vector of values for saturation densities

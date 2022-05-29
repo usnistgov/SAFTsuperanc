@@ -1,14 +1,16 @@
 import glob
 import pandas, json, matplotlib.pyplot as plt, numpy as np
 
+root = 'build'
+
 def plot_critical_curve():
-    j = pandas.DataFrame(json.load(open('bld/PCSAFT_crit_pts_interpolation.json')))
+    j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_interpolation.json')))
     plt.plot(j['1/m'], j['Ttilde'])
     plt.gca().set(xlabel='1/m', ylabel=r'$\widetilde{T}_{\rm crit}$')
     plt.show()
 
 def plot_all_VLE():
-    fnames = glob.glob('bld/PCSAFT_VLE_m*.json')
+    fnames = glob.glob(f'{root}/PCSAFT_VLE_m*.json')
     ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames]))
     for f in names:
         j = json.load(open(f))
