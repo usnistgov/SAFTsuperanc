@@ -1,4 +1,5 @@
 #include <sstream>
+#include <filesystem>
 
 // Imports from boost
 #include <boost/multiprecision/cpp_bin_float.hpp>
@@ -96,6 +97,23 @@ std::string to_string_with_precision(const T a_value, const int n = 16)
     return out.str();
 }
 
+/// Load a JSON file from a specified file
+inline nlohmann::json load_JSON_file(const std::string& path) {
+    if (!std::filesystem::is_regular_file(path)) {
+        throw std::invalid_argument("Path to be loaded does not exist: " + path);
+    }
+    auto stream = std::ifstream(path);
+    if (!stream) {
+        throw std::invalid_argument("File stream cannot be opened from: " + path);
+    }
+    try {
+        return nlohmann::json::parse(stream);
+    }
+    catch (...) {
+        throw std::invalid_argument("File at " + path + " is not valid JSON");
+    }
+}
+
 /// Trace away from the critical point down to a very low temperature
 class VLETracer {
 public:
@@ -111,11 +129,12 @@ public:
         rhotildec = rhoc * N_A * pow(sigma_m, 3);
         
         auto model = get_model(static_cast<double>(m));
+        
 
         /// Store critical values are stored as tilde-scaled quantities
         Ttilde.push_back(static_cast<double>(Tc) / epsilon_over_k_K);
-        rhotildeL.push_back(static_cast<double>(rhoc) * N_A * pow(sigma_m, 3));
-        rhotildeV.push_back(static_cast<double>(rhoc) * N_A * pow(sigma_m, 3));
+        rhotildeL.push_back(static_cast<double>(rhoc)*N_A*pow(sigma_m, 3));
+        rhotildeV.push_back(static_cast<double>(rhoc)*N_A*pow(sigma_m, 3));
 
         // Move just away from the critical point
         // with the critical point extrapolation
@@ -130,43 +149,64 @@ public:
             // Do the VLE calculation
             //auto rhovec = teqp::pure_VLE_T(model, T, rhoL, rhoV, 10);
             auto rhovec = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoL, rhoV, 10);
+
+            teqp::IsothermPureVLEResiduals<decltype(model), my_float_mp, teqp::ADBackends::multicomplex> res(model, T);
+            auto residuals = res.call(rhovec);
+            if (residuals.abs().maxCoeff() > 1e-16) {
+                std::cout << "Large residual detected : " << residuals.maxCoeff() << std::endl;
+            }
+
             const auto numeps = std::numeric_limits<my_float_mp>::epsilon();
             rhoL = rhovec[0], rhoV = rhovec[1];
             using std::isfinite;
             if (!isfinite(rhoL)) {
+                std::cout << "not finite" << std::endl;
                 break;
             }
             if (rhoV / rhoL < numeps) {
                 break;
             }
-            std::cout << T << " " << rhoL << " " << rhoV << " " << T/Tc << std::endl;
+            auto max_rho = model.max_rhoN(T, (Eigen::ArrayXd(1) << 1.0).finished())/N_A;
+            std::cout << T << " " << rhoL << " " << rhoV << " " << T/Tc <<  " " << rhoL/max_rho << std::endl;
             // Values are stored as tilde-scaled quantities
             Ttilde.push_back(static_cast<double>(T) / epsilon_over_k_K);
-            rhotildeL.push_back(static_cast<double>(rhoL) * N_A * pow(sigma_m, 3));
-            rhotildeV.push_back(static_cast<double>(rhoV) * N_A * pow(sigma_m, 3));
+            rhotildeL.push_back(static_cast<double>(rhoL)*N_A*pow(sigma_m, 3));
+            rhotildeV.push_back(static_cast<double>(rhoV)*N_A*pow(sigma_m, 3));
+
+            
 
             // Move down in temperature
-            T -= 0.001*Tc;
+            T -= 0.00025*Tc;
             iter++;
         }
     }
+    VLETracer(const std::string &path) {
+        auto j = load_JSON_file(path);
+        m = j.at("m");
+        Ttildec = j.at("Ttildec");
+        rhotildec = j.at("rhotildec"); 
+        Ttilde = j.at("Ttilde").get<std::vector<double>>();
+        rhotildeL = j.at("rhotildeL").get<std::vector<double>>();
+        rhotildeV = j.at("rhotildeV").get<std::vector<double>>();
+    }
     void to_json(const std::string path) {
         nlohmann::json outputs = {
-            {"Ttilde", Ttilde},
-            {"rhotildeL", rhotildeL},
-            {"rhotildeV", rhotildeV},
             {"m", m},
             {"Ttildec", Ttildec},
             {"rhotildec", rhotildec},
+            {"Ttilde", Ttilde},
+            {"rhotildeL", rhotildeL},
+            {"rhotildeV", rhotildeV},
         };
         std::ofstream file(path); file << outputs;
     }
+
     /// Linearly interpolate to get the tilde-scaled temperature and density
     auto interpolate_tilde(const double Ttilde_) {
         constexpr auto eps = std::numeric_limits<double>::epsilon();
         // Ttilde vector is stored in decreasing value, starting at critical and going down
-        if (Ttilde_ > Ttilde[0]*(1+eps) || Ttilde_ < Ttilde[Ttilde.size() - 1]*(1-eps)) {
-            throw std::invalid_argument("Ttilde is out of range");
+        if (Ttilde_ > Ttilde[0]*(1+100*eps) || Ttilde_ < Ttilde.back()*(1-100*eps)) {
+            throw std::invalid_argument("Ttilde is out of range for value of " + to_string_with_precision(Ttilde_) + " and limits are [" + to_string_with_precision(Ttilde[0]) + "," + to_string_with_precision(Ttilde[Ttilde.size() - 1]) + "]");
         }
         else {
             for (auto i = 0; i < Ttilde.size() - 1; ++i) {
@@ -174,11 +214,49 @@ public:
                     return std::make_tuple(linterp(Ttilde, rhotildeL, i, Ttilde_), linterp(Ttilde, rhotildeV, i, Ttilde_));
                 }
             }
-            throw std::invalid_argument("How did I get here? Value of Ttilde is " + to_string_with_precision(Ttilde_) + " and limits are [" + to_string_with_precision(Ttilde[0]) + "," + to_string_with_precision(Ttilde[1]) + "]");
+            throw std::invalid_argument("How did I get here? Value of Ttilde is " + to_string_with_precision(Ttilde_) + " and limits are [" + to_string_with_precision(Ttilde[0]) + "," + to_string_with_precision(Ttilde[Ttilde.size() - 1]) + "]");
         }
     }
 
-    auto build_expansions() {
+    auto test_interpolation(const std::size_t N) {
+        auto r01 = (Eigen::ArrayXd::Random(N)/2+0.5).eval();
+        auto model = get_model(m);
+        auto r01min = r01.minCoeff(), r01max = r01.maxCoeff();
+        auto Ttildevals = r01*Ttildec + (1.0-r01)*Ttilde.back();
+        auto Ttmin = Ttildevals.minCoeff(), Ttmax = Ttildevals.maxCoeff();
+        for (double Ttilde : Ttildevals) {
+            // Do the VLE calculation
+            auto [rhoLtilde, rhoVtilde] = interpolate_tilde(Ttilde);
+            std::cout << "." << std::endl;
+            auto T = Ttilde*epsilon_over_k_K;
+            auto rhovec = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoLtilde/(N_A * pow(sigma_m, 3)), rhoVtilde/(N_A * pow(sigma_m, 3)), 10);
+            using std::isfinite;
+            if (!isfinite(rhovec[0])) {
+                std::cout << Ttilde/Ttildec << std::endl;
+            }
+        }
+    }
+
+    auto test_extrapolation_from_critical(const double m, double Tc, double rhoc) {
+        auto model = get_model(m);
+        for (double dT = 0.01*Tc; dT > 1e-10*Tc; dT /= 2){
+            // Working variables are in molar units, as is extrapolation because it uses teqp
+            auto rhoe = teqp::extrapolate_from_critical(model, Tc, rhoc, Tc-dT);
+            // Do the VLE calculation in extended precision
+            auto rhovec = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, Tc-dT, rhoe[0], rhoe[1], 10);
+            std::cout << dT << " ;; " << rhovec << std::endl;
+        }
+    }
+
+    /// Get value of Ttilde for which density ratio is approximately 10^20
+    double get_Ttildemin(double m) {
+        std::valarray<double> c = { 0.37627892, -2.20078778 };
+        auto Tred = exp(c[1])*pow(m, c[0]);
+        return Tred * Ttildec;
+    }
+
+    /// Build all the expansions
+    auto build_expansions(const std::string &path) {
         auto model = get_model(m);
         int Mnorm = 3;
         // Convenience function to get the M-element norm
@@ -188,50 +266,40 @@ public:
         // The data type to contain the two expansions
         struct ChebPair { ChebTools::ChebyshevExpansion rhoL, rhoV; };
         std::vector<ChebPair> expansions;
+        auto Ttildemin = get_Ttildemin(m);
 
         /// A function to return liquid and vapor densities given temperature
-        /// All in tilde-reduced form
-        auto do_VLE = [&expansions, &model, this](double Tred) {
+        /// in normalized form (Theta = (T-Tmin)/(Tc-Tmin))
+        /// Returned densities are in tilde-reduced form as an Eigen::Array
+        auto do_VLE = [&expansions, &model, &Ttildemin, this](double Theta) {
 
-            // Temperature to real units
-            auto Ttilde = Tred * this->Ttildec;
+            // From reduced scaled temperature to real units
+            auto Ttilde = Theta * (Ttildec - Ttildemin) + Ttildemin;
+            auto Tred = Ttilde / Ttildec;
             auto T = Ttilde * epsilon_over_k_K;
 
             double rhotildeL, rhotildeV;
-            if (expansions.empty() || Tred < 0.8) {
+            bool interpolation_used = false;
+            if (Ttilde > this->Ttilde[1] && Tred < 1.0) {
+                auto rhos = teqp::extrapolate_from_critical(model, Ttildec*epsilon_over_k_K, rhotildec/(N_A*pow(sigma_m, 3)), T);
+                rhotildeL = rhos[0]*(N_A*pow(sigma_m, 3));
+                rhotildeV = rhos[1]*(N_A*pow(sigma_m, 3));
+            }
+            else{
                 // Interpolate from the rough values to get approximate solution for tilde-scaled densities
                 std::tie(rhotildeL, rhotildeV) = interpolate_tilde(Ttilde);
-            }
-            else {
-                // Use the set of expansions under development to estimate the values for densities
-                // This way the refinement of the expansions is manifested in the 
-
-                /// Return the index of the expansion that is desired
-                auto get_index = [&](double x, const auto& exs) {
-                    int iL = 0, iR = static_cast<int>(exs.size()) - 1, iM;
-                    while (iR - iL > 1) {
-                        iM = ChebTools::midpoint_Knuth(iL, iR);
-                        if (x >= exs[iM].rhoL.xmin()) {
-                            iL = iM;
-                        }
-                        else {
-                            iR = iM;
-                        }
-                    }
-                    return (x < exs[iL].rhoL.xmax()) ? iL : iR;
-                };
-                auto i = get_index(Tred, expansions);
-                auto t = (Tred - expansions[i].rhoL.xmin()) / (expansions[i].rhoL.xmax() - expansions[i].rhoL.xmin());
-                rhotildeL = expansions[i].rhoL.y_Clenshaw(Tred);
-                rhotildeV = expansions[i].rhoV.y_Clenshaw(Tred);
-                std::cout << Tred << " || " << rhotildeL << " || " << rhotildeV << " || " << t << std::endl;
+                interpolation_used = true;
             }
             auto rhoL = rhotildeL/(N_A*pow(sigma_m, 3));
             auto rhoV = rhotildeV/(N_A*pow(sigma_m, 3));
 
             // Solve phase equilibria problem in extended precision
             auto rhovec = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoL, rhoV, 10).cast<double>();
-            //std::cout << Tred << "::" << rhovec << std::endl;
+            ////std::cout << Tred << "::" << rhovec << std::endl;
+            if (!std::isfinite(rhovec[0])) {
+                throw std::invalid_argument("Invalid VLE solution for starting values of (" + std::to_string(rhoL) 
+                    + "," + std::to_string(rhoV) + ") mol/m^3 for Tred of " + std::to_string(Tred) + ((interpolation_used) ? " interpolation" : " critical"));
+            }
             // Return the desired solutions in tilde-reduced form
             return (rhovec* (N_A * pow(sigma_m, 3))).eval();
         };
@@ -249,9 +317,9 @@ public:
                 rhoLvals[i] = rhos[0];
                 rhoVvals[i] = rhos[1];
             }
-            std::cout << rhoLvals << std::endl;
-            std::cout << rhoVvals << std::endl;
-            // Invert values to get coefficients and return the expansions
+            //std::cout << rhoLvals << std::endl;
+            //std::cout << rhoVvals << std::endl;
+            // Invert values with DCT to get coefficients and return the expansions
             return ChebPair{ 
                 ChebTools::ChebyshevExpansion::factoryf(N, rhoLvals, Tmin, Tmax), 
                 ChebTools::ChebyshevExpansion::factoryf(N, rhoVvals, Tmin, Tmax) };
@@ -259,11 +327,12 @@ public:
         
         int N = 12;
         double tol = 1e-12;
-        double Tred_min = Ttilde.back() / Ttildec, Tred_max = Ttilde[0] / Ttildec;
-        expansions.emplace_back(make_expansions(N, Tred_min, Tred_max));
+        double Theta_min = 0.0, Theta_max = 1.0;
+        expansions.emplace_back(make_expansions(N, Theta_min, Theta_max));
 
         // Now enter into refinement passes
         for (int refine_pass = 0; refine_pass < max_refine_passes; ++refine_pass) {
+            std::cout << "pass " << refine_pass << std::endl;
             bool all_converged = true;
             // Start at the right and move left because insertions will make the length increase
             for (int iexpansion = static_cast<int>(expansions.size()) - 1; iexpansion >= 0; --iexpansion) {
@@ -296,9 +365,17 @@ public:
             if (all_converged) { break; }
         }        
      
+        std::vector<nlohmann::json> jexpansions;
         for (auto ex : expansions) {
             std::cout << "(" << ex.rhoL.xmin() << "," << ex.rhoV.xmax() << "): {" << ex.rhoL.coef() << "}" << std::endl;
+            jexpansions.push_back({
+                {"xmin", ex.rhoL.xmin()},
+                {"xmax", ex.rhoL.xmax()},
+                {"coefL", ex.rhoL.coef()},
+                {"coefV", ex.rhoV.coef()}
+            });
         }
+        std::ofstream file(path); file << jexpansions;
     }
 };
 
@@ -307,19 +384,25 @@ int main(){
     // Build interpolation function for critical point temperature and density as a function of 1/m
     double Ttilde1 = 1.2757487256161069; // nondimensional temperature
     double rhotilde1 = 0.2823886223463809; // nondimensional density
-    Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(2, 1, 2);
+    Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(100, 1, 100);
     auto ccrough = CriticalPointsInterpolator(Ms, Ttilde1*epsilon_over_k_K, rhotilde1/(N_A*pow(sigma_m, 3)));
     ccrough.to_json("PCSAFT_crit_pts_interpolation.json");
 
-    //for (double m : { 1,2,4,8,16,32,64 }) {
-    for (double m : { 1 }) {
+    //for (double m : { 1, 2, 4, 8, 16, 32, 48, 64, 96 }) {
+    // for (double m : { 70, 72, 74, 76, 78,80, 82, 84, 86, 88, 90, 92, 94, 96, 98 }) {
+    for (double m : { 88 }) {
         // Solve for the exact critical point for this value of m
         auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
         // Trace to build a vector of values for saturation densities
-        auto interp = VLETracer(m, Tc, rhoc, 0.001);
-        interp.to_json("PCSAFT_VLE_m" + std::to_string(m) + ".json");
+        std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
+        auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
+        interp.to_json(path);
+        //interp.test_interpolation(10000);
+        //interp.test_extrapolation_from_critical(m, Tc, rhoc);
+
         try {
-            interp.build_expansions();
+            std::string path_expansions = "PCSAFT_VLE_m" + std::to_string(m) + "_expansions.json";
+            interp.build_expansions(path_expansions);
         }
         catch (const std::exception& e) {
             std::cout << e.what() << std::endl;

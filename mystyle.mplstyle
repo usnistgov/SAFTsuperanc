@@ -1,0 +1,6 @@
+font.family: serif
+mathtext.fontset: dejavuserif
+font.size: 10
+legend.fontsize: 6
+legend.numpoints: 1
+legend.columnspacing: 3
