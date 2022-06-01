@@ -7,8 +7,14 @@ root = 'bld'
 
 def plot_critical_curve():
     j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_interpolation.json')))
-    plt.plot(j['1/m'], j['Ttilde'])
-    plt.gca().set(xlabel='1/m', ylabel=r'$\widetilde{T}_{\rm crit}$')
+    fig, axes = plt.subplots(2,1,figsize=(3.3, 4), sharex=True)
+    axes[0].plot(j['1/m'], j['Ttilde'])
+    axes[1].plot(j['1/m'], j['rhotilde'])
+    axes[0].set(xlabel='$1/m$', ylabel=r'$\widetilde{T}_{\rm crit}$')
+    axes[1].set(xlabel='$1/m$', ylabel=r'$\widetilde{\rho}_{\rm crit}$')
+    plt.xscale('log')
+    plt.tight_layout(pad=0.2)
+    plt.savefig('critical_values.pdf')
     plt.show()
 
 def get_fnames():
@@ -119,7 +125,7 @@ def plot_normalized_VLE():
     plt.savefig('PCSAFT_normalized_VLE.pdf')
     plt.close()
 
+plot_critical_curve()
 plot_all_VLE()
 plot_normalized_VLE()
 plot_Tmin()
-# plot_critical_curve()
