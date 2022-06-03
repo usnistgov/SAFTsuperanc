@@ -25,9 +25,8 @@ add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/teqp")
 add_executable(fitmain main.cpp)
 target_link_libraries(fitmain ChebTools teqpinterface autodiff)
 
-# target_include_directories(fastcheb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/boost_multiprecision")
+add_executable(fitbench bench.cpp)
+target_link_libraries(fitbench ChebTools teqpinterface autodiff Catch2WithMain)
 
-# target_include_directories(fastcheb
-#     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/externals/ChebTools/externals/Eigen"
-#     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/externals"
-# )
+add_executable(fittest test.cpp)
+target_link_libraries(fittest ChebTools teqpinterface autodiff) 
