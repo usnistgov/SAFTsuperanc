@@ -42,7 +42,7 @@ public:
             Ttilde.push_back(T/epsilon_over_k_K);
             rhotilde.push_back(rho*N_A*pow(sigma_m, 3));
             one_over_m.push_back(1/m);
-            std::cout << "[crit] " <<  m << "::" << T << "," << rho << std::endl;
+            //std::cout << "[crit] " <<  m << "::" << T << "," << rho << std::endl;
         }
     };
     void to_json(const std::string path) {
@@ -93,7 +93,7 @@ public:
 
         int Mnorm = 3;
         double tol = 1e-12;
-        int max_split = 12;
+        int max_split = 14;
         return std::make_tuple(
             ChebTools::ChebyshevExpansion::dyadic_splitting<std::vector<ChebTools::ChebyshevExpansion>>(16, f_T, ymin, ymax, Mnorm, tol, max_split),
             ChebTools::ChebyshevExpansion::dyadic_splitting<std::vector<ChebTools::ChebyshevExpansion>>(16, f_rho, ymin, ymax, Mnorm, tol, max_split)
@@ -195,7 +195,7 @@ public:
                 break;
             }
             auto max_rho = model.max_rhoN(T, (Eigen::ArrayXd(1) << 1.0).finished())/N_A;
-            std::cout << T << " " << rhoL << " " << rhoV << " " << T/Tc <<  " " << rhoL/max_rho << std::endl;
+            //std::cout << T << " " << rhoL << " " << rhoV << " " << T/Tc <<  " " << rhoL/max_rho << std::endl;
             // Values are stored as tilde-scaled quantities
             Ttilde.push_back(static_cast<double>(T) / epsilon_over_k_K);
             rhotildeL.push_back(static_cast<double>(rhoL)*N_A*pow(sigma_m, 3));
@@ -290,7 +290,7 @@ public:
         int Mnorm = 3;
         // Convenience function to get the M-element norm
         auto get_err = [Mnorm](const auto& ce) { return ce.coef().tail(Mnorm).norm() / ce.coef().head(Mnorm).norm(); };
-        int max_refine_passes = 10; // As many as 2^max_refine_passes at end
+        int max_refine_passes = 10; // As many as 2^max_refine_passes expansions at end
         
         // The data type to contain the two expansions
         struct ChebPair { ChebTools::ChebyshevExpansion rhoL, rhoV; };
@@ -359,7 +359,7 @@ public:
                 ChebTools::ChebyshevExpansion::factoryf(N, rhoVvals, Tmin, Tmax) };
         };
         
-        int N = 12;
+        int N = 16;
         double tol = 1e-12;
         double Theta_min = 0.0, Theta_max = 1.0;
         expansions.emplace_back(make_expansions(N, Theta_min, Theta_max));
@@ -413,49 +413,67 @@ public:
     }
 };
 
-int main(){
-    
+void do_all(double mmin, double mmax, int m_split) {
     // Build interpolation function for critical point temperature and density as a function of 1/m
     double Ttilde1 = 1.2757487256161069; // nondimensional temperature
     double rhotilde1 = 0.2823886223463809; // nondimensional density
     Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(1000, 1, 1000);
-    auto ccrough = CriticalPointsInterpolator(Ms, Ttilde1*epsilon_over_k_K, rhotilde1/(N_A*pow(sigma_m, 3)));
+    auto ccrough = CriticalPointsInterpolator(Ms, Ttilde1 * epsilon_over_k_K, rhotilde1 / (N_A * pow(sigma_m, 3)));
     ccrough.to_json("PCSAFT_crit_pts_interpolation.json");
     double mmincrit = 1.0, mmaxcrit = 900.0;
     ccrough.dump_expansions(mmincrit, mmaxcrit, "PCSAFT_crit_pts_expansions.json");
 
     // Chebyshev nodes in y=1/m for m from 1 to mmax
-    auto N = 8;
-    double mmin = 1.0, mmax = 32.0;
-    double ymin = 1.0 / mmax, ymax = 1.0/mmin;
-    auto nodesn11 = ChebTools::get_CLnodes(N).array();
-    auto ynodes = ((ymax - ymin) * nodesn11 + (ymax + ymin)) / 2;
-    auto mnodes = 1 / ynodes;
+    auto Nm = 16;
+    Eigen::Index Mdomains = static_cast<Eigen::Index>(exp2(m_split)); // 2^m_split
+    auto Yedges = Eigen::ArrayXd::LinSpaced(Mdomains + 1, 1.0/mmax, 1.0/mmin);
+    std::cout << Yedges << std::endl;
+    for (auto i = 0; i < Yedges.size() - 1; ++i) {
+        double ymin = Yedges[i], ymax = Yedges[i+1];
+        auto nodesn11 = ChebTools::get_CLnodes(Nm).array();
+        auto ynodes = ((ymax - ymin) * nodesn11 + (ymax + ymin)) / 2;
+        auto mnodes = 1 / ynodes;
 
-    boost::asio::thread_pool pool(4); // 4 threads
-    
-    for (double m : mnodes) {
-        auto one_m = [m, &ccrough] {
-            std::cout << "************** " << m << " *****************" << std::endl;
+        boost::asio::thread_pool pool(8); // multiple threads in a pool
 
-            // Solve for the exact critical point for this value of m
-            auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
-            // Trace to build a vector of values for saturation densities
-            std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
-            auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
-            interp.to_json(path);
-            //interp.test_interpolation(10000);
-            //interp.test_extrapolation_from_critical(m, Tc, rhoc);
+        for (double m : mnodes) {
+            auto one_m = [m, &ccrough] {
+                std::cout << "************** " << m << " *****************" << std::endl;
 
-            try {
-                std::string path_expansions = "PCSAFT_VLE_m" + std::to_string(m) + "_expansions.json";
-                interp.build_expansions(path_expansions);
-            }
-            catch (const std::exception& e) {
-                std::cout << e.what() << std::endl;
-            }
-        };
-        boost::asio::post(pool, one_m);
+                // Solve for the exact critical point for this value of m
+                auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
+                // Trace to build a vector of values for saturation densities
+                std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
+                auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
+                interp.to_json(path);
+                //interp.test_interpolation(10000);
+                //interp.test_extrapolation_from_critical(m, Tc, rhoc);
+                try {
+                    std::string path_expansions = "PCSAFT_VLE_m" + to_string_with_precision(m, 12) + "_expansions.json";
+                    interp.build_expansions(path_expansions);
+                }
+                catch (const std::exception& e) {
+                    std::cout << e.what() << std::endl;
+                }
+            };
+            boost::asio::post(pool, one_m);
+        }
+        pool.join();
     }
-    pool.join();
+}
+
+void do_one_split(int m_split) {
+    double w = 1 - 1.0 / pow(2, m_split);
+    double mmin = 1.0, mmax = 1 / (1 * w + 1.0 / 64 * (1 - w));
+    do_all(mmin, mmax, 0);
+}
+
+int main() {
+    /*for (int m_split : {3}) {
+        do_one_split(m_split);
+    }*/
+    double mmin = 1, mmax = 64;
+    for (int m_split : {3}) {
+        do_all(mmin, mmax, m_split);
+    }
 }

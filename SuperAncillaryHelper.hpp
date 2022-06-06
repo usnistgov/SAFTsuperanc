@@ -60,15 +60,18 @@ class SuperAncillaryHelper {
 
 public:
     using ArrayN = Eigen::Array<double, Nm+1, 1>;
-    double mmin = 1, mmax = 64;
+    const double mmin, mmax;
     std::vector<ChebTools::ChebyshevCollection> expsL, expsV;
     const ArrayN mnodes = get_mnodes<Nm>(mmin, mmax);
 public:
     /// Unpack the expansions
-    SuperAncillaryHelper(const std::string& root) {
+    SuperAncillaryHelper(const std::string& root, double mmin, double mmax) : mmin(mmin), mmax(mmax){
         for (auto m : mnodes) {
             std::vector<ChebyshevExpansion> L, V;
-            std::string filepath = (std::ostringstream() << std::fixed << std::setprecision(6) << root << "/PCSAFT_VLE_m" << m << "_expansions.json").str();
+            std::string filepath = (std::ostringstream() << std::scientific << std::setprecision(12) << root << "/PCSAFT_VLE_m" << m << "_expansions.json").str();
+            if (!std::filesystem::exists(filepath)) {
+                std::cout << "Missing file: " << filepath << std::endl;
+            }
             for (auto ex : load_JSON_file(filepath)) {
                 auto get_array = [&ex](const std::string &k) {auto v = ex.at(k).get<std::vector<double>>();  return Eigen::Map<Eigen::ArrayXd>(&(v[0]), v.size()).eval(); };
                 Eigen::ArrayXd coefL = get_array("coefL"), coefV = get_array("coefV");
@@ -93,6 +96,7 @@ public:
     /// Call the function to get densities from the superancillary
     auto operator()(double Theta, double m) {
         auto [rhoLfvals, rhoVfvals] = getvals(Theta, m);
+        double ymin = 1 / mmax, ymax = 1 / mmin;
         auto tilderhoL = ChebyshevExpansion::factoryf(Nm, rhoLfvals, ymin, ymax).y(1/m);
         auto tilderhoV = ChebyshevExpansion::factoryf(Nm, rhoVfvals, ymin, ymax).y(1/m);
         return std::make_tuple(tilderhoL, tilderhoV);

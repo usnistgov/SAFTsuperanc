@@ -21,7 +21,9 @@ TEST_CASE("Benchmark evaluation of critical ancillaries") {
 }
 
 TEST_CASE("Benchmark evaluation of super ancillaries") {
-	auto anc = SuperAncillaryHelper<32>(".");
+	double w = 1 - 1.0 / pow(2, 5);
+	double mmin = 1.0, mmax = 1 / (1 * w + 1.0 / 64 * (1 - w));
+	auto anc = SuperAncillaryHelper<8>(".", mmin, mmax);
 	auto cch = CriticalCurveHelper(".");
 
 	double m = 5; 
