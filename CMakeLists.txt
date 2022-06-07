@@ -2,6 +2,19 @@ cmake_minimum_required(VERSION 3.12)
 project(PCSaftSuperAncillary)
 set(CMAKE_CXX_STANDARD 17)
 
+macro(add_nix_libraries target)
+    # See https://stackoverflow.com/a/29871891
+    # Add DL and pthreads
+    FIND_PACKAGE(Threads REQUIRED)
+    find_package(Threads REQUIRED)
+    if(THREADS_HAVE_PTHREAD_ARG)
+      target_compile_options(${target} PRIVATE "-pthread")
+    endif()
+    if(CMAKE_THREAD_LIBS_INIT)
+      target_link_libraries(${target} PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+    endif()
+endmacro()
+
 find_program(CCACHE_FOUND "ccache")
 set(CCACHE_SUPPORT ON CACHE BOOL "Enable ccache support")
 if (CCACHE_FOUND AND CCACHE_SUPPORT)
@@ -23,7 +36,10 @@ add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/teqp")
 # set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_executable(fitmain main.cpp)
-target_link_libraries(fitmain ChebTools teqpinterface autodiff)
+target_link_libraries(fitmain PRIVATE ChebTools PRIVATE teqpinterface PRIVATE autodiff)
+if (NOT MSVC)
+  ADD_NIX_LIBRARIES(fitmain)
+endif()
 
 add_executable(fitbench bench.cpp)
 target_link_libraries(fitbench ChebTools teqpinterface autodiff Catch2WithMain)

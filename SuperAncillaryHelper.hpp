@@ -46,12 +46,12 @@ public:
 };
 
 template<int Nm>
-auto get_mnodes(double mmin, double mmax) {
+Eigen::Array<double, Nm + 1, 1> get_mnodes(double mmin, double mmax) {
     using ArrayN = Eigen::Array<double, Nm + 1, 1>;
-    double ymin = 1 / mmax, ymax = 1 / mmin; // y = 1 / m
-    const ArrayN nodes_n11 = ArrayN::LinSpaced(Nm + 1, 0, Nm); // [0,1,...,Nm]
-    const ArrayN ynodes = (ymax - ymin) / 2 * cos(nodes_n11 * EIGEN_PI / Nm) + (ymin + ymax) / 2;
-    const ArrayN mnodes = 1 / ynodes;
+    double ymin = 1 / mmax, ymax = 1 / mmin; // y = 1/m
+    const ArrayN nodes_n11 = cos(ArrayN::LinSpaced(Nm + 1, 0, Nm)*EIGEN_PI/Nm); // [0,1,...,Nm]
+    const ArrayN ynodes = (ymax - ymin)/2*nodes_n11 + (ymin + ymax) / 2;
+    const ArrayN mnodes = 1/ynodes;
     return mnodes;
 }
 
@@ -61,15 +61,17 @@ class SuperAncillaryHelper {
 public:
     using ArrayN = Eigen::Array<double, Nm+1, 1>;
     const double mmin, mmax;
+    const ArrayN mnodes;
     std::vector<ChebTools::ChebyshevCollection> expsL, expsV;
-    const ArrayN mnodes = get_mnodes<Nm>(mmin, mmax);
 public:
     /// Unpack the expansions
-    SuperAncillaryHelper(const std::string& root, double mmin, double mmax) : mmin(mmin), mmax(mmax){
+    SuperAncillaryHelper(const std::string& root, double mmin, double mmax) : mmin(mmin), mmax(mmax), mnodes(get_mnodes<Nm>(mmin, mmax)){
         for (auto m : mnodes) {
             std::vector<ChebyshevExpansion> L, V;
             std::string filepath = (std::ostringstream() << std::scientific << std::setprecision(12) << root << "/PCSAFT_VLE_m" << m << "_expansions.json").str();
             if (!std::filesystem::exists(filepath)) {
+                std::cout << mmin << " **** " << mmax << std::endl;
+                std::cout << mnodes << std::endl;
                 std::cout << "Missing file: " << filepath << std::endl;
             }
             for (auto ex : load_JSON_file(filepath)) {

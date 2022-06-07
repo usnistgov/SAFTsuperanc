@@ -41,10 +41,11 @@ enum class node_options { normal, worst };
 template<int Nm, node_options opt>
 void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 	auto cch = CriticalCurveHelper(".");
-	Eigen::Index Mdomains = static_cast<Eigen::Index>(exp2(m_split)); // 2^m_split
-	auto Yedges = Eigen::ArrayXd::LinSpaced(Mdomains + 1, 1.0/mmax, 1.0/mmin);
-	for (auto i = Yedges.size()-1; i >= 0; --i) { 
-		double ymin = Yedges[i], ymax = Yedges[i+1];
+	auto Wedges = get_Wedges(mmin, mmax, m_split);
+	for (auto i = Wedges.size()-2; i >= 0; --i) { 
+		double ymin = Wedges[i], ymax = Wedges[i + 1];
+		double mmin_ = 1 / ymax, mmax_ = 1 / ymin;
+
 		try{
 		auto anc = SuperAncillaryHelper<Nm>(".", 1/ymax, 1/ymin);
 		std::cout << 1/ymax << "," << 1/ymin << std::endl;
@@ -77,9 +78,10 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 				double rhoV = rhotildeV/(N_A*sigma_m_3);
 
 				// Polish the solution, in double and then extended precision
-				using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<200>>;
+				using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<100>>;
 				Eigen::ArrayXd rhovec_dbl = teqp::pure_VLE_T(model, T, rhoL, rhoV, 10);
-				Eigen::ArrayXd rhovec_mp = rhovec_dbl * -1; // teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhovec_dbl[0], rhovec_dbl[1], 10).cast<double>();
+				//Eigen::ArrayXd rhovec_mp = -100 * rhovec_dbl;
+				Eigen::ArrayXd rhovec_mp = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoL, rhoV, 10).cast<double>();
 				double rhoLerr = rhovec_dbl[0]*N_A*sigma_m_3/rhotildeL - 1;
 				//std::cout << rhoLerr << std::endl;
 				jout.push_back({
@@ -105,15 +107,15 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 }
 
 int main() {
-	//test_critical();
-	//double w = 1-1.0/pow(2, 3);
-    double mmin = 1.0, mmax = 64.0;
+	test_critical();
+    
+	double mmin = 1.0, mmax = 64.0;
 	int m_split = 3;
-	//test_VLE<32>(fitted_nodes<32>(1, 64), "PCSAFT_VLE_check_fitted.json");
 
 	// The nodes where the fitting was done, should be good to close to numerical precision
 	test_VLE<16, node_options::normal>(mmin, mmax, m_split, "PCSAFT_VLE_check_fitted_Nm16.json");
 
-	// For an expansion of degree N, the worst-case error should be at the odd Chebyshev-Lobatto nodes of degree 2N
+	// For an expansion of degree N, the worst-case error should be at or close to the odd Chebyshev-Lobatto nodes of degree 2N
+	// (the even ones should be good to numerical precision)
 	test_VLE<16, node_options::worst>(mmin, mmax, m_split, "PCSAFT_VLE_check_worstcase_Nm16.json");
 }

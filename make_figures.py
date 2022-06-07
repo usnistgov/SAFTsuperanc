@@ -1,6 +1,7 @@
 import glob
 import pandas, json, matplotlib.pyplot as plt, numpy as np
 import scipy.interpolate
+plt.style.use('classic')
 plt.style.use('mystyle.mplstyle')
 
 root = 'bld'
@@ -16,6 +17,31 @@ def plot_critical_curve():
     axes[1].set_yscale('log')
     plt.tight_layout(pad=0.2)
     plt.savefig('critical_values.pdf')
+    plt.show()
+
+def plot_critical_curvedev():
+    j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_check.json')))
+    fig, axes = plt.subplots(2,1,figsize=(3.3, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+    axes[0].plot(j['1/m'], j['Ttilde_tab'])
+    axes[1].plot(j['1/m'], (j['Ttilde_tab']/j['Ttilde_fit']-1))
+
+    axes[0].set(ylabel=r'$\widetilde{T}_{\rm crit}$')
+    axes[1].set(xlabel='$1/m$', ylabel=r'$\widetilde{T}_{\rm crit,tab}/\widetilde{T}_{\rm crit,fit}-1$')
+    plt.xscale('log')
+    plt.tight_layout(pad=0.2)
+    plt.savefig('Tcritical_values_dev.pdf')
+    plt.show()
+
+    fig, axes = plt.subplots(2,1,figsize=(3.3, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+    axes[0].plot(j['1/m'], j['rhotilde_tab'])
+    axes[1].plot(j['1/m'], (j['rhotilde_tab']/j['rhotilde_fit']-1))
+
+    axes[0].set(ylabel=r'$\widetilde{\rho}_{\rm crit}$')
+    axes[1].set(xlabel='$1/m$', ylabel=r'$\widetilde{\rho}_{\rm crit,tab}/\widetilde{\rho}_{\rm crit,fit}-1$')
+    plt.xscale('log')
+    axes[0].set_yscale('log')
+    plt.tight_layout(pad=0.2)
+    plt.savefig('rhocritical_values_dev.pdf')
     plt.show()
 
 def get_fnames():
@@ -36,14 +62,14 @@ def plot_all_VLE():
         Ttildemin = np.min(df['Ttilde'])
         
         Tred = df['Ttilde']/j['Ttildec']
-        line, = plt.plot(df['rhotildeL']/j['rhotildec'], Tred, label=f'$m$: {m}')
+        line, = plt.plot(df['rhotildeL']/j['rhotildec'], Tred, label='')
         plt.plot(df['rhotildeV']/j['rhotildec'], Tred, color=line.get_color())
     plt.axvline(1.0, dashes=[1,1])
     plt.gca().set(
         xlabel=r'$\widetilde{\rho}/\widetilde{\rho}_{\rm crit}$', 
         ylabel=r'$\widetilde{T}/\widetilde{T}_{\rm crit}$'
     )
-    plt.legend(loc='best', ncol=3, fontsize=4)
+    # plt.legend(loc='best', ncol=3, fontsize=4)
     plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_all_VLE.pdf')
     plt.close()
@@ -57,19 +83,20 @@ def plot_Tmin():
         df = pandas.DataFrame({k:j[k] for k in arrays})
         m = j['m']
         Tred = df['Ttilde']/j['Ttildec']
-        line, = plt.plot(df['rhotildeL']/j['rhotildeV'], Tred, label=f'$m$: {m}')
+        line, = plt.plot(df['rhotildeL']/j['rhotildeV'], Tred, label='')
         try:
             Tmin_red = float(scipy.interpolate.interp1d(df['rhotildeL']/df['rhotildeV'], Tred)(1e20))
             ooo.append({'m': j['m'], 'Tmin_red': Tmin_red})
         except:
             pass
-    plt.legend(loc='best')
+    # plt.legend(loc='best')
     plt.xscale('log')
     plt.xlim(1, 1e40)
     plt.gca().set(
         xlabel=r"$\widetilde{\rho}'/\widetilde{\rho}''$",
         ylabel=r'$\widetilde{T}/\widetilde{T}_{\rm crit}$'
     )
+    plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_Tmin_VLE.pdf')
     plt.close()
 
@@ -113,7 +140,7 @@ def plot_normalized_VLE():
 
         Theta = (df['Ttilde']-Ttildemin)/(j['Ttildec']-Ttildemin)
         
-        line, = plt.plot(df['rhotildeL']/j['rhotildec'], Theta, label=f'$m$: {m}')
+        line, = plt.plot(df['rhotildeL']/j['rhotildec'], Theta, label='')
         plt.plot(df['rhotildeV']/j['rhotildec'], Theta, color=line.get_color())
     plt.axvline(1.0, dashes=[1,1])
     plt.gca().set(
@@ -121,12 +148,92 @@ def plot_normalized_VLE():
         ylabel=r'$\Theta=(\widetilde{T}-\widetilde{T}_{\rm min})/(\widetilde{T}_{\rm crit}-\widetilde{T}_{\rm min})$'
     )
     plt.ylim(0, 1)
-    plt.legend(loc='best', fontsize=4, ncol=3)
+    # plt.legend(loc='best', fontsize=4, ncol=3)
     plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_normalized_VLE.pdf')
     plt.close()
 
-plot_critical_curve()
-plot_all_VLE()
-plot_normalized_VLE()
-plot_Tmin()
+def plot_allrhoerr(Nm, fitted=False):
+    for domain_index in range(8):
+        if fitted:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
+        else:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
+        err = df['rhotildeL_VLEmp']/df['rhotildeL_anc']-1
+        err[err==0] = 1e-16
+        baddies = ~np.isfinite(err)
+        if sum(baddies) > 0:
+            print(sum(baddies))
+        sc = plt.scatter(df['Theta'], np.log10(np.abs(err)), c=df['1/m'], vmin=1/64, vmax=1/1, cmap='viridis', lw=0)
+    
+    plt.gca().set(xlabel=r'$\Theta$', ylabel=r'$\log_{10}(|err|)$', xlim=(0,1))
+    cb = plt.colorbar()
+    cb.set_label(r'$1/m$')
+    plt.tight_layout(pad=0.2)
+    if fitted:
+        plt.savefig(f'all_fitted_devplot.pdf')
+    else:
+        plt.savefig(f'all_Nm{Nm}_devplot.pdf')
+    plt.show()
+
+def plot_allrhoerr_m(Nm, fitted=False):
+    for domain_index in range(8):
+        if fitted:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
+        else:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
+        err = df['rhotildeL_VLEmp']/df['rhotildeL_anc']-1
+        err[err==0] = 1e-16
+        baddies = ~np.isfinite(err)
+        if sum(baddies) > 0:
+            print(sum(baddies))
+        sc = plt.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=0, vmax=1, cmap='viridis', lw=0)
+    
+    plt.gca().set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|err|)$', xlim=(1/64,1))
+    cb = plt.colorbar()
+    cb.set_label(r'$\Theta$')
+    plt.tight_layout(pad=0.2)
+    if fitted:
+        plt.savefig(f'all_fitted_devplot_funcm.pdf')
+    else:
+        plt.savefig(f'all_Nm{Nm}_devplot_funcm.pdf')
+    plt.show()
+
+def plot_rhoerr(domain_index, Nm):
+    if Nm == 0:
+        df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
+    else:
+        df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
+    
+    # sc = plt.scatter(df['Theta'], df['1/m'], c=np.log10(np.abs(df['rhotildeL_VLE']/df['rhotildeL_anc']-1)), vmin=-16, vmax=2)
+    # plt.gca().set(xlabel=r'$\Theta$', ylabel=r'$1/m$')
+    # cb = plt.colorbar()
+    # cb.set_label(r'$\log10(|err|)$')
+    # if Nm == 0:
+    #     plt.savefig(f'fitted_Thetam.pdf')
+    # else:
+    #     plt.savefig(f'Nm{Nm}_Thetam.pdf')
+    # plt.show()
+
+    sc = plt.scatter(df['Theta'], np.log10(np.abs(df['rhotildeL_VLE']/df['rhotildeL_anc']-1)), c=df['1/m'])
+    plt.gca().set(xlabel=r'$\Theta$', ylabel=r'$\log10(|relerr|)$')
+    cb = plt.colorbar()
+    cb.set_label(r'$1/m$')
+    
+    if Nm == 0:
+        plt.savefig(f'fitted_devplot.pdf')
+    else:
+        plt.savefig(f'Nm{Nm}_devplot.pdf')
+    plt.show()
+
+if __name__ == '__main__':
+
+    # plot_critical_curve()
+    # plot_critical_curvedev()
+    # plot_all_VLE()
+    # plot_normalized_VLE()
+    # plot_Tmin()
+    # plot_allrhoerr(16, fitted=True)
+    # plot_allrhoerr(16, fitted=False)
+    plot_allrhoerr_m(16, fitted=True)
+    plot_allrhoerr_m(16, fitted=False)

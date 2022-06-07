@@ -15,6 +15,8 @@ cd bld
 cmake ..
 cmake --build . --config Release
 Release\fitmain
+Release\fittest
+Release\fitbench
 ```
 
 On WSL2 in vscode, running on an ubuntu 20.04 image, the C++ build tools will pick up the correct building arguments if you open this folder in the WSL2 image and have installed the C++ build tools in the WSL2 image. Then:
@@ -31,6 +33,8 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 ./fitmain
+./fittest
+./fitbench
 ```
 
 ## Plotting

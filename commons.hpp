@@ -26,6 +26,6 @@ inline auto get_model(const double m) {
 
 auto get_Wedges(double mmin, double mmax, int m_split) {
 	Eigen::Index Mdomains = static_cast<Eigen::Index>(exp2(m_split)); // 2^m_split
-	auto Wedges = Eigen::ArrayXd::LinSpaced(Mdomains + 1, 1.0 / mmax, 1.0 / mmin);
+	Eigen::ArrayXd Wedges = Eigen::ArrayXd::LinSpaced(Mdomains + 1, 1.0 / mmax, 1.0 / mmin);
 	return Wedges.eval();
 }
