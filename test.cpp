@@ -3,6 +3,8 @@ Test the obtained functions for their accuracy and dump results in JSON format f
 further analysis in Python
 */
 
+#include "teqp/types.hpp"
+
 #include <iostream>
 #include "SuperAncillaryHelper.hpp"
 #include "nlohmann/json.hpp"
