@@ -130,7 +130,7 @@ std::string to_string_with_precision(const T a_value, const int n = 16)
 class VLETracer {
 public:
     using my_float = double;
-    using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<200>>; 
+    using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<50>>; 
     std::vector<double> Ttilde, rhotildeL, rhotildeV;
     double Ttildec, rhotildec, m;
 
@@ -423,7 +423,12 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
     auto splittol = 1e-11;
 
     // Method to test if a given expansion is converged
-    auto not_converged_coef = [&Mnorm, &splittol](const Eigen::ArrayXd& coef) {
+    auto coef_norm = [&Mnorm](const Eigen::ArrayXd& coef) {
+        return sqrt(coef.head(Mnorm).pow(2).sum()) / sqrt(coef.tail(Mnorm).pow(2).sum());
+    };    
+
+    // Method to test if a given expansion is converged
+    auto not_converged_coef = [&Mnorm, &splittol, &coef_norm](const Eigen::ArrayXd& coef) {
         auto norm = sqrt(coef.head(Mnorm).pow(2).sum()) / sqrt(coef.tail(Mnorm).pow(2).sum());
         // Check norm
         if (norm > splittol) {
@@ -469,6 +474,7 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
         std::vector<double> Wedges_(Wedges.size()); for (auto i = 0; i < Wedges.size(); ++i) { Wedges_[i] = Wedges[i]; }
         nlohmann::json jedges = {{"Wedges", Wedges_}};
         std::ofstream file("Wedges.json"); file << jedges;
+        std::ofstream file("Wedges_pass"+std::to_string(refine_pass)+".json"); file << jedges;
 
         // Check for non-converged expansions, force insertion of splits as appropriate
         for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
@@ -476,6 +482,7 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
             for (double Theta : {0.1, 0.5, 0.9}) {
                 auto [expL, expV] = anc.get_expansions(Theta);
                 if (not_converged_coef(expL.coef()) || not_converged_coef(expV.coef())) {
+                    std::cout << "[norm] " << Theta << "," << coef_norm(expL.coef()) << "," << coef_norm(expV.coef()) << std::endl;
                     // Insert at most one split in 1/m 
                     Wedges = array_insert(Wedges, i + 1, (Wedges[i] + Wedges[i + 1])/2);
                     break;
