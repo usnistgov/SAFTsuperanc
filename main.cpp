@@ -429,9 +429,8 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
 
     // Method to test if a given expansion is converged
     auto not_converged_coef = [&Mnorm, &splittol, &coef_norm](const Eigen::ArrayXd& coef) {
-        auto norm = sqrt(coef.head(Mnorm).pow(2).sum()) / sqrt(coef.tail(Mnorm).pow(2).sum());
         // Check norm
-        if (norm > splittol) {
+        if (coef_norm(coef) > splittol) {
             return true;
         }
         else {
