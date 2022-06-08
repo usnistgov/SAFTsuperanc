@@ -86,7 +86,7 @@ public:
     }
 
     /// Call the function to get nodal values in 1/m
-    auto getvals(double Theta, double m) {
+    auto getvals(double Theta) {
         ArrayN rhoLfvals, rhoVfvals;
         for (auto i = 0; i <= Nm; ++i) {
             rhoLfvals[i] = expsL[i](Theta);
@@ -95,12 +95,19 @@ public:
         return std::make_tuple(rhoLfvals, rhoVfvals);
     }
 
+    auto get_expansions(double Theta) {
+        auto [rhoLfvals, rhoVfvals] = getvals(Theta);
+        double ymin = 1 / mmax, ymax = 1 / mmin;
+        return std::make_tuple(
+            ChebyshevExpansion::factoryf(Nm, rhoLfvals, ymin, ymax),
+            ChebyshevExpansion::factoryf(Nm, rhoVfvals, ymin, ymax)
+        );
+    }
+
     /// Call the function to get densities from the superancillary
     auto operator()(double Theta, double m) {
-        auto [rhoLfvals, rhoVfvals] = getvals(Theta, m);
-        double ymin = 1 / mmax, ymax = 1 / mmin;
-        auto tilderhoL = ChebyshevExpansion::factoryf(Nm, rhoLfvals, ymin, ymax).y(1/m);
-        auto tilderhoV = ChebyshevExpansion::factoryf(Nm, rhoVfvals, ymin, ymax).y(1/m);
-        return std::make_tuple(tilderhoL, tilderhoV);
+        auto [rhoLfvals, rhoVfvals] = getvals(Theta);
+        auto [expL, expV] = get_expansions(Theta);
+        return std::make_tuple(expL.y(1/m), expV.y(1/m));
     }
 };

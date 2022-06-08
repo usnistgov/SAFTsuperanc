@@ -14,8 +14,7 @@ using namespace boost::multiprecision;
 #include "ChebTools/ChebTools.h"
 
 #include "commons.hpp"
-
-
+#include "SuperAncillaryHelper.hpp"
 
 template<typename T>
 inline auto linterp (const T& x, const T& y, std::size_t i, const double val) {
@@ -125,23 +124,6 @@ std::string to_string_with_precision(const T a_value, const int n = 16)
     std::ostringstream out; out.precision(n);
     out << std::scientific << a_value;
     return out.str();
-}
-
-/// Load a JSON file from a specified file
-inline nlohmann::json load_JSON_file(const std::string& path) {
-    if (!std::filesystem::is_regular_file(path)) {
-        throw std::invalid_argument("Path to be loaded does not exist: " + path);
-    }
-    auto stream = std::ifstream(path);
-    if (!stream) {
-        throw std::invalid_argument("File stream cannot be opened from: " + path);
-    }
-    try {
-        return nlohmann::json::parse(stream);
-    }
-    catch (...) {
-        throw std::invalid_argument("File at " + path + " is not valid JSON");
-    }
 }
 
 /// Trace away from the critical point down to a very low temperature
@@ -413,7 +395,17 @@ public:
     }
 };
 
-void do_all(double mmin, double mmax, int m_split) {
+auto array_insert(const Eigen::ArrayXd& x, int i, double val) {
+    Eigen::ArrayXd xnew(x.size()+1);
+    auto headlength = i;
+    auto taillength = xnew.size() - i;
+    xnew.head(headlength) = x.head(headlength);
+    xnew.tail(taillength) = x.tail(taillength);
+    xnew(i) = val;
+    return xnew;
+};
+
+void do_all(double mmin, double mmax, int max_refine_pass) {
     // Build interpolation function for critical point temperature and density as a function of 1/m
     double Ttilde1 = 1.2757487256161069; // nondimensional temperature
     double rhotilde1 = 0.2823886223463809; // nondimensional density
@@ -424,56 +416,78 @@ void do_all(double mmin, double mmax, int m_split) {
     ccrough.dump_expansions(mmincrit, mmaxcrit, "PCSAFT_crit_pts_expansions.json");
 
     // Chebyshev nodes in y=1/m for m from 1 to mmax
-    auto Nm = 16;
-    Eigen::Index Mdomains = static_cast<Eigen::Index>(exp2(m_split)); // 2^m_split
-    auto Yedges = Eigen::ArrayXd::LinSpaced(Mdomains + 1, 1.0/mmax, 1.0/mmin);
-    std::cout << Yedges << std::endl;
-    for (auto i = 0; i < Yedges.size() - 1; ++i) {
-        double ymin = Yedges[i], ymax = Yedges[i+1];
-        auto nodesn11 = ChebTools::get_CLnodes(Nm).array();
-        auto ynodes = ((ymax - ymin) * nodesn11 + (ymax + ymin)) / 2;
-        auto mnodes = 1 / ynodes;
+    const int Nm = 16;
+    Eigen::ArrayXd Wedges = Eigen::ArrayXd::LinSpaced(2, 1.0/mmax, 1.0/mmin);
+    //std::cout << Wedges << std::endl;
+    auto Mnorm = 3;
+    auto splittol = 1e-11;
 
-        boost::asio::thread_pool pool(8); // multiple threads in a pool
-
-        for (double m : mnodes) {
-            auto one_m = [m, &ccrough] {
-                std::cout << "************** " << m << " *****************" << std::endl;
-
-                // Solve for the exact critical point for this value of m
-                auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
-                // Trace to build a vector of values for saturation densities
-                std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
-                auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
-                interp.to_json(path);
-                //interp.test_interpolation(10000);
-                //interp.test_extrapolation_from_critical(m, Tc, rhoc);
-                try {
-                    std::string path_expansions = "PCSAFT_VLE_m" + to_string_with_precision(m, 12) + "_expansions.json";
-                    interp.build_expansions(path_expansions);
-                }
-                catch (const std::exception& e) {
-                    std::cout << e.what() << std::endl;
-                }
-            };
-            boost::asio::post(pool, one_m);
+    // Method to test if a given expansion is converged
+    auto not_converged_coef = [&Mnorm, &splittol](const Eigen::ArrayXd& coef) {
+        auto norm = sqrt(coef.head(Mnorm).pow(2).sum()) / sqrt(coef.tail(Mnorm).pow(2).sum());
+        // Check norm
+        if (norm > splittol) {
+            return true;
         }
-        pool.join();
+        else {
+            return false;
+        }
+    };
+
+    for (auto refine_pass = 0; refine_pass <= max_refine_pass; ++refine_pass) {
+        std::cout << "Refine pass:" << refine_pass << std::endl;
+        // Iterate over the W domains
+        for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
+            double ymin = Wedges[i], ymax = Wedges[i + 1];
+            auto mnodes = get_mnodes<Nm>(1/ymax, 1/ymin);
+
+            boost::asio::thread_pool pool(3); // multiple threads in a pool
+
+            for (double m : mnodes) {
+                auto one_m = [m, &ccrough] {
+                    std::cout << "************** " << m << " *****************" << std::endl;
+
+                    // Solve for the exact critical point for this value of m
+                    auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
+                    // Trace to build a vector of values for saturation densities
+                    std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
+                    auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
+                    interp.to_json(path);
+                    try {
+                        std::string path_expansions = "PCSAFT_VLE_m" + to_string_with_precision(m, 12) + "_expansions.json";
+                        interp.build_expansions(path_expansions);
+                    }
+                    catch (const std::exception& e) {
+                        std::cout << e.what() << std::endl;
+                    }
+                };
+                boost::asio::post(pool, one_m);
+            }
+            pool.join();
+        }
+        // Store the current edges of domains in w=1/m, before any new splitting
+        std::vector<double> Wedges_(Wedges.size()); for (auto i = 0; i < Wedges.size(); ++i) { Wedges_[i] = Wedges[i]; }
+        nlohmann::json jedges = {{"Wedges", Wedges_}};
+        std::ofstream file("Wedges.json"); file << jedges;
+
+        // Check for non-converged expansions, force insertion of splits as appropriate
+        for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
+            SuperAncillaryHelper<Nm> anc(".", 1/Wedges[i+1], 1/Wedges[i]);
+            for (double Theta : {0.1, 0.5, 0.9}) {
+                auto [expL, expV] = anc.get_expansions(Theta);
+                if (not_converged_coef(expL.coef()) || not_converged_coef(expV.coef())) {
+                    // Insert at most one split in 1/m 
+                    Wedges = array_insert(Wedges, i + 1, (Wedges[i] + Wedges[i + 1])/2);
+                    break;
+                }
+            }
+        }
+        std::cout << "W edges: " << Wedges << std::endl;
     }
 }
 
-void do_one_split(int m_split) {
-    double w = 1 - 1.0 / pow(2, m_split);
-    double mmin = 1.0, mmax = 1 / (1 * w + 1.0 / 64 * (1 - w));
-    do_all(mmin, mmax, 0);
-}
-
-int main() {
-    /*for (int m_split : {3}) {
-        do_one_split(m_split);
-    }*/
+int main() {   
     double mmin = 1, mmax = 64;
-    for (int m_split : {3}) {
-        do_all(mmin, mmax, m_split);
-    }
+    int max_refine_pass = 6;
+    do_all(mmin, mmax, max_refine_pass);
 }
