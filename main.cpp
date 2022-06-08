@@ -420,11 +420,11 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
     Eigen::ArrayXd Wedges = Eigen::ArrayXd::LinSpaced(2, 1.0/mmax, 1.0/mmin);
     //std::cout << Wedges << std::endl;
     auto Mnorm = 3;
-    auto splittol = 1e-11;
+    auto splittol = 1e-12;
 
     // Method to test if a given expansion is converged
     auto coef_norm = [&Mnorm](const Eigen::ArrayXd& coef) {
-        return sqrt(coef.head(Mnorm).pow(2).sum()) / sqrt(coef.tail(Mnorm).pow(2).sum());
+        return sqrt(coef.tail(Mnorm).pow(2).sum()) / sqrt(coef.head(Mnorm).pow(2).sum()) ;
     };    
 
     // Method to test if a given expansion is converged
