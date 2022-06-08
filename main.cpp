@@ -474,7 +474,7 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
         std::vector<double> Wedges_(Wedges.size()); for (auto i = 0; i < Wedges.size(); ++i) { Wedges_[i] = Wedges[i]; }
         nlohmann::json jedges = {{"Wedges", Wedges_}};
         std::ofstream file("Wedges.json"); file << jedges;
-        std::ofstream file("Wedges_pass"+std::to_string(refine_pass)+".json"); file << jedges;
+        std::ofstream filei("Wedges_pass"+std::to_string(refine_pass)+".json"); filei << jedges;
 
         // Check for non-converged expansions, force insertion of splits as appropriate
         for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
