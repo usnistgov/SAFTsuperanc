@@ -68,7 +68,8 @@ public:
     SuperAncillaryHelper(const std::string& root, double mmin, double mmax) : mmin(mmin), mmax(mmax), mnodes(get_mnodes<Nm>(mmin, mmax)){
         for (auto m : mnodes) {
             std::vector<ChebyshevExpansion> L, V;
-            std::string filepath = (std::ostringstream() << std::scientific << std::setprecision(12) << root << "/PCSAFT_VLE_m" << m << "_expansions.json").str();
+            std::ostringstream ss; ss << std::scientific << std::setprecision(12) << root << "/PCSAFT_VLE_m" << m << "_expansions.json";
+            std::string filepath = ss.str();
             if (!std::filesystem::exists(filepath)) {
                 std::cout << mmin << " **** " << mmax << std::endl;
                 std::cout << mnodes << std::endl;
