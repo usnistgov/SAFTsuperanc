@@ -274,7 +274,7 @@ public:
         int Mnorm = 3;
         // Convenience function to get the M-element norm
         auto get_err = [Mnorm](const auto& ce) { return ce.coef().tail(Mnorm).norm() / ce.coef().head(Mnorm).norm(); };
-        int max_refine_passes = 10; // As many as 2^max_refine_passes expansions at end
+        int max_refine_passes = 13; // As many as 2^max_refine_passes expansions at end
         
         // The data type to contain the two expansions
         struct ChebPair { ChebTools::ChebyshevExpansion rhoL, rhoV; };
