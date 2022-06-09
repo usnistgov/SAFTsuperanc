@@ -24,7 +24,7 @@ On WSL2 in vscode, running on an ubuntu 20.04 image, the C++ build tools will pi
 * Select the Build configuration (Debug, Release)
 * Select the target (fitmain)
 * Build & run
-* The outputs will be in the build folder at completion
+* The outputs will be in the ``output`` folder at completion
 
 On linux, similar to windows:
 

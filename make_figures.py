@@ -4,7 +4,7 @@ import scipy.interpolate
 plt.style.use('classic')
 plt.style.use('mystyle.mplstyle')
 
-root = 'bld'
+root = 'output'
 
 def plot_critical_curve():
     j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_interpolation.json')))
@@ -176,30 +176,38 @@ def plot_allrhoerr(Nm, fitted=False):
         plt.savefig(f'all_Nm{Nm}_devplot.pdf')
     plt.show()
 
-def plot_allrhoerr_m(Nm, fitted=False):
-    for domain_index in range(8):
+def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
+    fig, axes = plt.subplots(1,2,figsize=(6, 5),sharey=True, sharex=True)
+    for domain_index in range(10):
         if fitted:
             df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
         else:
             df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
-        err = df['rhotildeL_VLEmp']/df['rhotildeL_anc']-1
-        err[err==0] = 1e-16
-        baddies = ~np.isfinite(err)
-        if sum(baddies) > 0:
-            print(sum(baddies))
-        sc = plt.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=0, vmax=1, cmap='viridis', lw=0)
+        df = df[df['Theta'] >= Theta_cutoff]
+        keys = ['rhotildeL','rhotildeV']
+        for key, ax in zip(keys, axes):
+            err = df[f'{key}_VLEmp']/df[f'{key}_anc']-1
+            err[err==0] = 1e-16
+            baddies = ~np.isfinite(err)
+            if sum(baddies) > 0:
+                print(sum(baddies))
+            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=0, vmax=1, cmap='viridis', lw=0)
+            ax.set_title(key)
     
-    plt.gca().set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|err|)$', xlim=(1/64,1))
-    cb = plt.colorbar()
+    axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
+    axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|err|)$', xlim=(1/64,1))
+    cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\Theta$')
     plt.tight_layout(pad=0.2)
     if fitted:
-        plt.savefig(f'all_fitted_devplot_funcm.pdf')
+        plt.savefig(f'all_fitted_devplot_funcm{suffix}.pdf')
     else:
-        plt.savefig(f'all_Nm{Nm}_devplot_funcm.pdf')
-    plt.show()
+        plt.savefig(f'all_Nm{Nm}_devplot_funcm{suffix}.pdf')
+    plt.close()
 
-def plot_rhoerr(domain_index, Nm):
+
+
+def plot_rhoerr(root, domain_index, Nm):
     if Nm == 0:
         df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
     else:
@@ -235,5 +243,7 @@ if __name__ == '__main__':
     # plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
-    plot_allrhoerr_m(16, fitted=True)
-    plot_allrhoerr_m(16, fitted=False)
+    plot_allrhoerr_m('bld', 16, fitted=True)
+    plot_allrhoerr_m('bld', 16, fitted=False)
+
+    plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.999, suffix='_nearcrit')
