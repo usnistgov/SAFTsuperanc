@@ -1,6 +1,7 @@
 import glob
 import pandas, json, matplotlib.pyplot as plt, numpy as np
 import scipy.interpolate
+import re
 plt.style.use('classic')
 plt.style.use('mystyle.mplstyle')
 
@@ -49,10 +50,24 @@ def get_fnames():
     ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames if '_expansions' not in fname]))
     return names
 
+def get_fnames_edges():
+    Wedge_files = glob.glob(f'{root}/Wedges_pass*.json')
+    print(Wedge_files)
+    def get_pass(f):
+        match = re.search(r'Wedges_pass([0-9]+).json', f).group(1)
+        return int(match)
+    Wedge_filess = sorted(Wedge_files, key=get_pass)
+    fname = Wedge_filess[-1]
+    import os
+    fnames = [f'{root}/PCSAFT_VLE_m{1/f:0.6f}.json' for f in json.load(open(fname))["Wedges"]]
+    assert(all([os.path.exists(f) for f in fnames]))
+    ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames if '_expansions' not in fname]))
+    return names
+
 def plot_all_VLE():
 
     fig, ax = plt.subplots(1,1,figsize=(3.3,3))
-    for f in get_fnames():
+    for f in get_fnames_edges():
         j = json.load(open(f))
         arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
         df = pandas.DataFrame({k:j[k] for k in arrays})
@@ -77,7 +92,7 @@ def plot_all_VLE():
 def plot_Tmin():
     ooo = []
     fig, ax = plt.subplots(1,1,figsize=(3.3,3))
-    for f in get_fnames():
+    for f in get_fnames_edges():
         j = json.load(open(f))
         arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
         df = pandas.DataFrame({k:j[k] for k in arrays})
@@ -92,6 +107,7 @@ def plot_Tmin():
     # plt.legend(loc='best')
     plt.xscale('log')
     plt.xlim(1, 1e40)
+
     plt.gca().set(
         xlabel=r"$\widetilde{\rho}'/\widetilde{\rho}''$",
         ylabel=r'$\widetilde{T}/\widetilde{T}_{\rm crit}$'
@@ -124,7 +140,7 @@ def plot_Tmin():
     
 def plot_normalized_VLE():
     fig, (axV, axL) = plt.subplots(1, 2, figsize=(3.3,3), sharey=True)
-    for f in get_fnames():
+    for f in get_fnames_edges():
         j = json.load(open(f))
         arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
         df = pandas.DataFrame({k:j[k] for k in arrays})
@@ -242,12 +258,17 @@ def plot_rhoerr(root, domain_index, Nm):
     plt.show()
 
 if __name__ == '__main__':
+    import ChebTools
+    
+    # ce = ChebTools.ChebyshevExpansion(np.linspace(0,1,17), 1/64, 1/1)
+    # print(1/ce.get_nodes_realworld())
+    # quit()
 
     # plot_critical_curve()
     # plot_critical_curvedev()
-    # plot_all_VLE()
-    # plot_normalized_VLE()
-    plot_Tmin()
+    plot_all_VLE()
+    plot_normalized_VLE()
+    # plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
     # plot_allrhoerr_m('bld', 16, fitted=True)
