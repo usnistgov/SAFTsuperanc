@@ -96,6 +96,7 @@ def plot_Tmin():
         xlabel=r"$\widetilde{\rho}'/\widetilde{\rho}''$",
         ylabel=r'$\widetilde{T}/\widetilde{T}_{\rm crit}$'
     )
+    plt.xticks(10.0**np.array([0,6,12,18,24,30,36]))
     plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_Tmin_VLE.pdf')
     plt.close()
@@ -122,7 +123,7 @@ def plot_Tmin():
     plt.close()
     
 def plot_normalized_VLE():
-    fig, ax = plt.subplots(1,1,figsize=(3.3,3))
+    fig, (axV, axL) = plt.subplots(1, 2, figsize=(3.3,3), sharey=True)
     for f in get_fnames():
         j = json.load(open(f))
         arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
@@ -131,8 +132,6 @@ def plot_normalized_VLE():
         if m > 80:
             continue
         
-        # Ttildemin = np.min(df['Ttilde']) # from the data
-
         # From the empirical fit
         c = [ 0.37627892, -2.20078778 ]
         Tredmin = np.exp(c[1])*np.power(m, c[0])
@@ -140,15 +139,23 @@ def plot_normalized_VLE():
 
         Theta = (df['Ttilde']-Ttildemin)/(j['Ttildec']-Ttildemin)
         
-        line, = plt.plot(df['rhotildeL']/j['rhotildec'], Theta, label='')
-        plt.plot(df['rhotildeV']/j['rhotildec'], Theta, color=line.get_color())
-    plt.axvline(1.0, dashes=[1,1])
-    plt.gca().set(
-        xlabel=r'$\widetilde{\rho}/\widetilde{\rho}_{\rm crit}$', 
+        line, = axL.plot(df['rhotildeL']/j['rhotildec'], Theta, label='')
+        axV.plot(df['rhotildeV']/j['rhotildec'], Theta, color=line.get_color())
+
+    axV.set(
         ylabel=r'$\Theta=(\widetilde{T}-\widetilde{T}_{\rm min})/(\widetilde{T}_{\rm crit}-\widetilde{T}_{\rm min})$'
     )
+    axV.set(
+        xlabel=r"$\widetilde{\rho}''/\widetilde{\rho}''_{\rm crit}$"
+    )
+    axL.set(
+        xlabel=r"$\widetilde{\rho}'/\widetilde{\rho}'_{\rm crit}$"
+    )
+    axV.set_xscale('log')
+    axV.set_xlim(1e-20,1)
+    axV.set_xticks(10.0**np.array([0, -10.0, -20]))
     plt.ylim(0, 1)
-    # plt.legend(loc='best', fontsize=4, ncol=3)
+    axL.set_xlim(1, 7)
     plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_normalized_VLE.pdf')
     plt.close()
@@ -240,10 +247,9 @@ if __name__ == '__main__':
     # plot_critical_curvedev()
     # plot_all_VLE()
     # plot_normalized_VLE()
-    # plot_Tmin()
+    plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
-    plot_allrhoerr_m('bld', 16, fitted=True)
-    plot_allrhoerr_m('bld', 16, fitted=False)
-
-    plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.999, suffix='_nearcrit')
+    # plot_allrhoerr_m('bld', 16, fitted=True)
+    # plot_allrhoerr_m('bld', 16, fitted=False)
+    # plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.999, suffix='_nearcrit')
