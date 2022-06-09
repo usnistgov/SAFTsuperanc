@@ -479,7 +479,7 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
 
         // Check for non-converged expansions, force insertion of splits as appropriate
         for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
-            SuperAncillaryHelper<Nm> anc(".", 1/Wedges[i+1], 1/Wedges[i]);
+            SuperAncillaryHelper<Nm> anc(root, 1/Wedges[i+1], 1/Wedges[i]);
             for (double Theta : {0.1, 0.5, 0.9}) {
                 auto [expL, expV] = anc.get_expansions(Theta);
                 if (not_converged_coef(expL.coef()) || not_converged_coef(expV.coef())) {
