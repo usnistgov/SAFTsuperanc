@@ -11,9 +11,11 @@ further analysis in Python
 
 #include "commons.hpp"
 
+const std::string root = "../output";
+
 void test_critical() {
-	auto cch = CriticalCurveHelper(".");
-	auto j = load_JSON_file("./PCSAFT_crit_pts_interpolation.json");
+	auto cch = CriticalCurveHelper(root);
+	auto j = load_JSON_file(root + "/PCSAFT_crit_pts_interpolation.json");
 	std::vector<nlohmann::json> jout;
 	auto N = j["Ttilde"].size();
 	for (auto i = 0; i < N; ++i) {
@@ -40,15 +42,15 @@ enum class node_options { normal, worst };
 
 template<int Nm, node_options opt>
 void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
-	auto cch = CriticalCurveHelper(".");
-	auto Wedges = get_Wedges(mmin, mmax, m_split);
-	for (auto i = Wedges.size()-2; i >= 0; --i) { 
+	auto cch = CriticalCurveHelper(root);
+	auto Wedges = load_JSON_file(root + "/Wedges_pass" + std::to_string(m_split) + ".json").at("Wedges").get<std::vector<double>>();
+	for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) { 
 		double ymin = Wedges[i], ymax = Wedges[i + 1];
 		double mmin_ = 1 / ymax, mmax_ = 1 / ymin;
+		std::cout << mmin_ << "," << mmax_ << std::endl;
 
 		try{
-		auto anc = SuperAncillaryHelper<Nm>(".", 1/ymax, 1/ymin);
-		std::cout << 1/ymax << "," << 1/ymin << std::endl;
+		auto anc = SuperAncillaryHelper<Nm>(root, 1/ymax, 1/ymin);
 		std::vector<nlohmann::json> jout;
 		int Ntheta = 100;
 		double dTheta = 1.0 / (Ntheta - 1.0);
@@ -78,11 +80,17 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 				double rhoV = rhotildeV/(N_A*sigma_m_3);
 
 				// Polish the solution, in double and then extended precision
-				using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<100>>;
+				using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<50>>;
 				Eigen::ArrayXd rhovec_dbl = teqp::pure_VLE_T(model, T, rhoL, rhoV, 10);
 				//Eigen::ArrayXd rhovec_mp = -100 * rhovec_dbl;
 				Eigen::ArrayXd rhovec_mp = teqp::pure_VLE_T<decltype(model), my_float_mp, teqp::ADBackends::multicomplex>(model, T, rhoL, rhoV, 10).cast<double>();
 				double rhoLerr = rhovec_dbl[0]*N_A*sigma_m_3/rhotildeL - 1;
+
+				if (std::abs(Theta - 1) < dblepsilon) {
+					auto rhoc = cch.rhotilde(1/m)/(N_A*sigma_m_3);
+					rhovec_dbl << rhoc, rhoc;
+					rhovec_mp << rhoc, rhoc;
+				}
 				//std::cout << rhoLerr << std::endl;
 				jout.push_back({
 					{"1/m", 1/m},
@@ -110,7 +118,7 @@ int main() {
 	test_critical();
     
 	double mmin = 1.0, mmax = 64.0;
-	int m_split = 3;
+	int m_split = 8;
 
 	// The nodes where the fitting was done, should be good to close to numerical precision
 	test_VLE<16, node_options::normal>(mmin, mmax, m_split, "PCSAFT_VLE_check_fitted_Nm16.json");

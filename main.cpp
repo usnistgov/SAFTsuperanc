@@ -16,6 +16,8 @@ using namespace boost::multiprecision;
 #include "commons.hpp"
 #include "SuperAncillaryHelper.hpp"
 
+const std::string root = "../output";
+
 template<typename T>
 inline auto linterp (const T& x, const T& y, std::size_t i, const double val) {
     return (y[i + 1] - y[i]) / (x[i + 1] - x[i]) * (val - x[i]) + y[i];
@@ -130,7 +132,7 @@ std::string to_string_with_precision(const T a_value, const int n = 16)
 class VLETracer {
 public:
     using my_float = double;
-    using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<50>>; 
+    using my_float_mp = boost::multiprecision::number<boost::multiprecision::cpp_bin_float<100>>; 
     std::vector<double> Ttilde, rhotildeL, rhotildeV;
     double Ttildec, rhotildec, m;
 
@@ -411,9 +413,9 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
     double rhotilde1 = 0.2823886223463809; // nondimensional density
     Eigen::ArrayXd Ms = Eigen::ArrayXd::LinSpaced(1000, 1, 1000);
     auto ccrough = CriticalPointsInterpolator(Ms, Ttilde1 * epsilon_over_k_K, rhotilde1 / (N_A * pow(sigma_m, 3)));
-    ccrough.to_json("PCSAFT_crit_pts_interpolation.json");
+    ccrough.to_json(root + "/PCSAFT_crit_pts_interpolation.json");
     double mmincrit = 1.0, mmaxcrit = 900.0;
-    ccrough.dump_expansions(mmincrit, mmaxcrit, "PCSAFT_crit_pts_expansions.json");
+    ccrough.dump_expansions(mmincrit, mmaxcrit, root + "/PCSAFT_crit_pts_expansions.json");
 
     // Chebyshev nodes in y=1/m for m from 1 to mmax
     const int Nm = 16;
@@ -445,7 +447,7 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
             double ymin = Wedges[i], ymax = Wedges[i + 1];
             auto mnodes = get_mnodes<Nm>(1/ymax, 1/ymin);
 
-            boost::asio::thread_pool pool(3); // multiple threads in a pool
+            boost::asio::thread_pool pool(Nm/2+1); // multiple threads in a pool
 
             for (double m : mnodes) {
                 auto one_m = [m, &ccrough] {
@@ -454,11 +456,11 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
                     // Solve for the exact critical point for this value of m
                     auto [Tc, rhoc] = ccrough.get_Tcrhoc(m);
                     // Trace to build a vector of values for saturation densities
-                    std::string path = "PCSAFT_VLE_m" + std::to_string(m) + ".json";
+                    std::string path = root + "/PCSAFT_VLE_m" + std::to_string(m) + ".json";
                     auto interp = (std::filesystem::exists(path)) ? VLETracer(path) : VLETracer(m, Tc, rhoc, 0.001);
                     interp.to_json(path);
                     try {
-                        std::string path_expansions = "PCSAFT_VLE_m" + to_string_with_precision(m, 12) + "_expansions.json";
+                        std::string path_expansions = root + "/PCSAFT_VLE_m" + to_string_with_precision(m, 12) + "_expansions.json";
                         interp.build_expansions(path_expansions);
                     }
                     catch (const std::exception& e) {
@@ -471,9 +473,9 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
         }
         // Store the current edges of domains in w=1/m, before any new splitting
         std::vector<double> Wedges_(Wedges.size()); for (auto i = 0; i < Wedges.size(); ++i) { Wedges_[i] = Wedges[i]; }
-        nlohmann::json jedges = {{"Wedges", Wedges_}};
-        std::ofstream file("Wedges.json"); file << jedges;
-        std::ofstream filei("Wedges_pass"+std::to_string(refine_pass)+".json"); filei << jedges;
+        nlohmann::json jedges = { {"Wedges", Wedges_}, {"mmin", mmin}, {"mmax", mmax}, {"Nm", Nm} };
+        std::ofstream file(root + "/Wedges.json"); file << jedges;
+        std::ofstream filei(root + "/Wedges_pass"+std::to_string(refine_pass)+".json"); filei << jedges;
 
         // Check for non-converged expansions, force insertion of splits as appropriate
         for (int i = static_cast<int>(Wedges.size())-2; i >= 0; --i) {
@@ -488,12 +490,14 @@ void do_all(double mmin, double mmax, int max_refine_pass) {
                 }
             }
         }
-        std::cout << "W edges: " << Wedges << std::endl;
     }
 }
 
-int main() {   
+int main() {
+    if (!std::filesystem::exists(root)) {
+        throw std::invalid_argument("Can't get the root path");
+    }
     double mmin = 1, mmax = 64;
-    int max_refine_pass = 6;
+    int max_refine_pass = 8;
     do_all(mmin, mmax, max_refine_pass);
 }
