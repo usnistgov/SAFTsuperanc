@@ -52,7 +52,6 @@ def get_fnames():
 
 def get_fnames_edges():
     Wedge_files = glob.glob(f'{root}/Wedges_pass*.json')
-    print(Wedge_files)
     def get_pass(f):
         match = re.search(r'Wedges_pass([0-9]+).json', f).group(1)
         return int(match)
@@ -63,6 +62,31 @@ def get_fnames_edges():
     assert(all([os.path.exists(f) for f in fnames]))
     ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames if '_expansions' not in fname]))
     return names
+
+def get_fnames_edge_expansions():
+    Wedge_files = glob.glob(f'{root}/Wedges_pass*.json')
+    def get_pass(f):
+        match = re.search(r'Wedges_pass([0-9]+).json', f).group(1)
+        return int(match)
+    Wedge_filess = sorted(Wedge_files, key=get_pass)
+    fname = Wedge_filess[-1]
+    import os
+    fnames = [f'{root}/PCSAFT_VLE_m{1/f:0.12e}_expansions.json' for f in json.load(open(fname))["Wedges"]]
+    assert(all([os.path.exists(f) for f in fnames]))
+    return fnames, json.load(open(fname))["Wedges"]
+
+def plot_intervals():
+    fig, ax = plt.subplots(1,1,figsize=(3.5, 2.5))
+    for f, w in zip(*get_fnames_edge_expansions()):
+        j = json.load(open(f))
+        edges = [ex['xmin'] for ex in j]
+        edges += [ex['xmax'] for ex in j]
+        edges = list(set(sorted(edges)))
+        plt.plot(w*np.ones_like(edges), edges, 'o')
+    plt.gca().set(xlabel=r'$w=1/m$', ylabel=r'$\Theta$')
+    plt.tight_layout(pad=0.2)
+    plt.savefig('intervals.pdf')
+    plt.show()
 
 def plot_all_VLE():
 
@@ -201,26 +225,33 @@ def plot_allrhoerr(Nm, fitted=False):
 
 def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
     fig, axes = plt.subplots(1,2,figsize=(6, 5),sharey=True, sharex=True)
+    maxerr = 0
     for domain_index in range(10):
         if fitted:
             df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
         else:
             df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
         df = df[df['Theta'] >= Theta_cutoff]
+        df = df[df['Theta'] <= 1.0-2.2e-14]
+
         keys = ['rhotildeL','rhotildeV']
         for key, ax in zip(keys, axes):
             err = df[f'{key}_VLEmp']/df[f'{key}_anc']-1
             err[err==0] = 1e-16
+            maxerr = max(maxerr, np.max(err))
             baddies = ~np.isfinite(err)
+            badTheta = df.loc[baddies,'Theta']
             if sum(baddies) > 0:
-                print(sum(baddies))
-            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=0, vmax=1, cmap='viridis', lw=0)
+                print(sum(baddies), np.min(badTheta))
+            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=Theta_cutoff, vmax=1, cmap='viridis', lw=0)
             ax.set_title(key)
     
     axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
     axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|err|)$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\Theta$')
+    print(maxerr)
+    axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
     plt.tight_layout(pad=0.2)
     if fitted:
         plt.savefig(f'all_fitted_devplot_funcm{suffix}.pdf')
@@ -266,11 +297,12 @@ if __name__ == '__main__':
 
     # plot_critical_curve()
     # plot_critical_curvedev()
-    plot_all_VLE()
-    plot_normalized_VLE()
+    # plot_all_VLE()
+    # plot_normalized_VLE()
+    # plot_intervals()
     # plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
-    # plot_allrhoerr_m('bld', 16, fitted=True)
-    # plot_allrhoerr_m('bld', 16, fitted=False)
-    # plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.999, suffix='_nearcrit')
+    plot_allrhoerr_m('bld', 16, fitted=True)
+    plot_allrhoerr_m('bld', 16, fitted=False)
+    # plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.9999, suffix='_nearcrit')
