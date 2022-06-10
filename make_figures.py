@@ -247,7 +247,7 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             ax.set_title(key)
     
     axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
-    axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|err|)$', xlim=(1/64,1))
+    axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\Theta$')
     print(maxerr)
