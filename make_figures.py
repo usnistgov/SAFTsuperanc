@@ -250,7 +250,6 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
     axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\Theta$')
-    print(maxerr)
     axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
     plt.tight_layout(pad=0.2)
     if fitted:

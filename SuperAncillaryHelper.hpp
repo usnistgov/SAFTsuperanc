@@ -8,6 +8,23 @@
 
 #include "ChebTools/ChebTools.h"
 
+template<std::size_t N>
+auto buildmat() {
+    Eigen::Matrix<double, N + 1, N + 1> L; ///< Matrix of coefficients
+    for (int j = 0; j <= N; ++j) {
+        for (int k = j; k <= N; ++k) {
+            double p_j = (j == 0 || j == N) ? 2 : 1;
+            double p_k = (k == 0 || k == N) ? 2 : 1;
+            L(j, k) = 2.0 / (p_j * p_k * N) * cos((j * EIGEN_PI * k) / N);
+            // Exploit symmetry to fill in the symmetric elements in the matrix
+            L(k, j) = L(j, k);
+        }
+    }
+    return L;
+}
+const Eigen::MatrixXd V8 = buildmat<8>();
+const Eigen::MatrixXd V16 = buildmat<16>();
+
 using namespace ChebTools;
 
 /// Load a JSON file from a specified file
@@ -63,6 +80,7 @@ public:
     const double mmin, mmax;
     const ArrayN mnodes;
     std::vector<ChebTools::ChebyshevCollection> expsL, expsV;
+    Eigen::Matrix<double, Nm + 1, 2> F;
 public:
     /// Unpack the expansions
     SuperAncillaryHelper(const std::string& root, double mmin, double mmax) : mmin(mmin), mmax(mmax), mnodes(get_mnodes<Nm>(mmin, mmax)){
@@ -87,7 +105,7 @@ public:
     }
 
     /// Call the function to get nodal values in 1/m
-    auto getvals(double Theta) {
+    auto get_vals(double Theta) const {
         ArrayN rhoLfvals, rhoVfvals;
         for (auto i = 0; i <= Nm; ++i) {
             rhoLfvals[i] = expsL[i](Theta);
@@ -97,17 +115,19 @@ public:
     }
 
     auto get_expansions(double Theta) {
-        auto [rhoLfvals, rhoVfvals] = getvals(Theta);
+        auto [rhoLfvals, rhoVfvals] = get_vals(Theta);
         double ymin = 1 / mmax, ymax = 1 / mmin;
+        F.col(0) = rhoLfvals;
+        F.col(1) = rhoVfvals;
+        auto c = V16 * F;
         return std::make_tuple(
-            ChebyshevExpansion::factoryf(Nm, rhoLfvals, ymin, ymax),
-            ChebyshevExpansion::factoryf(Nm, rhoVfvals, ymin, ymax)
+            ChebyshevExpansion::ChebyshevExpansion(c.col(0).eval(), ymin, ymax),
+            ChebyshevExpansion::ChebyshevExpansion(c.col(1).eval(), ymin, ymax)
         );
     }
 
     /// Call the function to get densities from the superancillary
     auto operator()(double Theta, double m) {
-        auto [rhoLfvals, rhoVfvals] = getvals(Theta);
         auto [expL, expV] = get_expansions(Theta);
         return std::make_tuple(expL.y(1/m), expV.y(1/m));
     }
