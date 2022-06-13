@@ -243,13 +243,13 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             badTheta = df.loc[baddies,'Theta']
             if sum(baddies) > 0:
                 print(sum(baddies), np.min(badTheta))
-            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=df['Theta'], vmin=Theta_cutoff, vmax=1, cmap='viridis', lw=0)
+            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=np.log10(1-df['Theta']), vmin=np.log10(1e-8), vmax=np.log10(1), cmap='viridis', lw=0)
             ax.set_title(key)
     
     axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
     axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
-    cb.set_label(r'$\Theta$')
+    cb.set_label(r'$\log_{10}(1-\Theta)$')
     axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
     plt.tight_layout(pad=0.2)
     if fitted:
@@ -258,7 +258,40 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
         plt.savefig(f'all_Nm{Nm}_devplot_funcm{suffix}.pdf')
     plt.close()
 
+def plot_allrhoerr_Theta(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
+    fig, axes = plt.subplots(1,2,figsize=(6, 5),sharey=True, sharex=True)
+    maxerr = 0
+    for domain_index in range(10):
+        if fitted:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
+        else:
+            df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_worstcase_Nm{Nm}.json')))
+        df = df[df['Theta'] >= Theta_cutoff]
+        df = df[df['Theta'] <= 1.0-2.2e-14]
 
+        keys = ['rhotildeL', 'rhotildeV']
+        for key, ax in zip(keys, axes):
+            err = df[f'{key}_VLEmp']/df[f'{key}_anc']-1
+            err[err==0] = 1e-16
+            maxerr = max(maxerr, np.max(err))
+            baddies = ~np.isfinite(err)
+            badTheta = df.loc[baddies,'Theta']
+            if sum(baddies) > 0:
+                print(sum(baddies), np.min(badTheta))
+            sc = ax.scatter(np.log10(1-df['Theta']), np.log10(np.abs(err)), c=df['1/m'], vmin=1/64, vmax=1, cmap='viridis', lw=0)
+            ax.set_title(key)
+    
+    axes[1].set(xlabel=r'$\log_{10}(1-\Theta)$')
+    axes[0].set(xlabel=r'$\log_{10}(1-\Theta)$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$')
+    cb = plt.colorbar(sc, ax=axes[1])
+    cb.set_label(r'$1/m$')
+    # axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
+    plt.tight_layout(pad=0.2)
+    if fitted:
+        plt.savefig(f'all_fitted_devplot_funcTheta{suffix}.pdf')
+    else:
+        plt.savefig(f'all_Nm{Nm}_devplot_funcTheta{suffix}.pdf')
+    plt.close()
 
 def plot_rhoerr(root, domain_index, Nm):
     if Nm == 0:
@@ -302,6 +335,6 @@ if __name__ == '__main__':
     # plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
-    plot_allrhoerr_m('bld', 16, fitted=True)
-    plot_allrhoerr_m('bld', 16, fitted=False)
-    # plot_allrhoerr_m('bld', 16, fitted=True, Theta_cutoff=0.9999, suffix='_nearcrit')
+    # plot_allrhoerr_m('bld', 16, fitted=True)
+    # plot_allrhoerr_m('bld', 16, fitted=False)
+    plot_allrhoerr_Theta('bld', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')

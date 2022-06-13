@@ -114,6 +114,16 @@ public:
         return std::make_tuple(rhoLfvals, rhoVfvals);
     }
 
+    /// Retrieve a given ChebyshevCollection for a specified value of 1/m
+    auto get_fitted_expansions(double m) const {
+        for (auto i = 0; i < mnodes.size(); ++i) {
+            if (mnodes[i] == m) {
+                return std::make_tuple(expsL[i], expsV[i]);
+            }
+        }
+        throw std::invalid_argument("Can't match m of " + std::to_string(m));
+    }
+
     auto get_expansions(double Theta) {
         auto [rhoLfvals, rhoVfvals] = get_vals(Theta);
         double ymin = 1 / mmax, ymax = 1 / mmin;

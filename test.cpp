@@ -53,7 +53,6 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 		auto anc = SuperAncillaryHelper<Nm>(root, 1/ymax, 1/ymin);
 		std::vector<nlohmann::json> jout;
 		int Ntheta = 100;
-		double dTheta = 1.0 / (Ntheta - 1.0);
 		int j = 0;
 		constexpr int Nm_domain = [&] {return (opt == node_options::normal) ? Nm : 2 * Nm; }();
 		for (double m : get_mnodes<Nm_domain>(1/ymax, 1/ymin)) {
@@ -61,13 +60,36 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 				// Only keep the odd nodes if doing worst case error calcs
 				j++; continue;
 			}
-			std::cout << "m: " << m << std::endl;
+			
 			//continue;
+
 			auto model = get_model(m);
 			double epsilon_over_k_K = model.get_epsilon_over_k_K()[0];
 			double sigma_m = model.get_sigma_Angstrom()[0]/1e10;
 			double sigma_m_3 = pow(sigma_m, 3);
-			for (auto Theta = 0.0; Theta <= 1; Theta += dTheta) {
+
+			Eigen::ArrayXd Thetavec = Eigen::ArrayXd::LinSpaced(Ntheta + 1, 0, 1);
+			if (opt == node_options::normal) {
+
+				/// All the nodes of the refined expansion for this value of w
+				auto [expL, expV] = anc.get_fitted_expansions(m);
+				std::vector<double> Thetas;
+				for (auto ki = 0; ki < expL.get_exps().size(); ++ki) { // Iterate over intervals in Theta
+					double xmin = expL.get_exps()[ki].xmin(), xmax = expL.get_exps()[ki].xmax();
+					int N = static_cast<int>(expL.get_exps()[ki].coef().size()) - 1;
+					// Double-sample in the Theta direction for this expansion
+					auto Thetavals = (xmax - xmin) / 2 * ChebTools::get_CLnodes(2 * N).array() + (xmax + xmin) / 2;
+					// Odd nodes (worst-case error)
+					for (auto Thetavecodd : Thetavals(Eigen::seq(1, 2 * N + 1, 2))) {
+						Thetas.push_back(Thetavecodd);
+					};
+				}
+				Thetavec = Eigen::Map<Eigen::ArrayXd>(&(Thetas[0]), Thetas.size());
+				
+			}
+			std::cout << "m: " << m << "; len(Thetavec): " << Thetavec.size() << std::endl;
+
+			for (auto Theta : Thetavec) {
 				// Unpack Theta to practical temperature variables
 				auto Ttildec = cch.Ttilde(1/m);
 				auto Ttilde_min = exp(-2.20078778)*pow(m, 0.37627892)*Ttildec;
@@ -125,5 +147,5 @@ int main() {
 
 	// For an expansion of degree N, the worst-case error should be at or close to the odd Chebyshev-Lobatto nodes of degree 2N
 	// (the even ones should be good to numerical precision)
-	test_VLE<16, node_options::worst>(mmin, mmax, m_split, "PCSAFT_VLE_check_worstcase_Nm16.json");
+	//test_VLE<16, node_options::worst>(mmin, mmax, m_split, "PCSAFT_VLE_check_worstcase_Nm16.json");
 }
