@@ -13,7 +13,7 @@
 namespace py = pybind11;
 
 void init_superanc(py::module& m) {
-    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV);
+    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Tilde"), py::arg("m"));
 }
 
 PYBIND11_MODULE(PCSAFTsuperanc, m) {
@@ -25,9 +25,10 @@ PYBIND11_MODULE(PCSAFTsuperanc, m) {
 #else 
 
 int main(){
-    double Ttilde = 1.1, m = 1.0;
+    double Ttilde = 0.462458913001258, m = 1.0;
     auto [rhotildeL, rhotildeV] = PCSAFTsuperanc_rhoLV(Ttilde, m);
-    int rr = 0;
+    double rhoLexpected = 0.911529657714442, rhoVexpected = 0.0000169530410973542;
+    int rr = 0; 
 }
 
 #endif 
