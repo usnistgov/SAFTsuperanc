@@ -87,7 +87,8 @@ void test_VLE(double mmin, double mmax, int m_split, const std::string& path) {
 				Thetavec = Eigen::Map<Eigen::ArrayXd>(&(Thetas[0]), Thetas.size());
 				
 			}
-			std::cout << "m: " << m << "; len(Thetavec): " << Thetavec.size() << std::endl;
+			std::cout << "m: " << m << "; len(Thetavec): " << Thetavec.size() << std::endl;33473347
+
 
 			for (auto Theta : Thetavec) {
 				// Unpack Theta to practical temperature variables
