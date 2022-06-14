@@ -4,25 +4,9 @@
 #include "PCSAFTsuperancillary_crit.hpp"
 
 using namespace ChebTools;
+using namespace PCSAFTSuperAncillary;
 
-template<std::size_t N>
-auto buildmat() {
-    Eigen::Matrix<double, N + 1, N + 1> L; ///< Matrix of coefficients
-    for (int j = 0; j <= N; ++j) {
-        for (int k = j; k <= N; ++k) {
-            double p_j = (j == 0 || j == N) ? 2 : 1;
-            double p_k = (k == 0 || k == N) ? 2 : 1;
-            L(j, k) = 2.0 / (p_j * p_k * N) * cos((j * EIGEN_PI * k) / N);
-            // Exploit symmetry to fill in the symmetric elements in the matrix
-            L(k, j) = L(j, k);
-        }
-    }
-    return L;
-}
-const static Eigen::MatrixXd V16 = buildmat<16>();
-
-const auto& get_interval(double w) {
-    using namespace PCSAFTSuperAncillary;
+const auto& get_interval(double w) {    
     /// Return the index of the expansion that is desired
     auto get_index = [&](double w) {
         auto midpoint_Knuth = [](int x, int y) { 
@@ -59,15 +43,12 @@ auto get_expansion(const Eigen::ArrayXd& vals, double wmin, double wmax) {
 }
 
 auto get_Ttilde_crit_min(double m){
-    using namespace PCSAFTSuperAncillary;
     auto Ttilde_crit = cc_Ttilde(1/m);
     auto Ttilde_min = exp(-2.20078778)*pow(m, 0.37627892)*Ttilde_crit;
     return std::make_tuple(Ttilde_crit, Ttilde_min);
 }
 
 auto PCSAFTsuperanc_rhoLV(double Ttilde, double m){
-    // 
-    using namespace PCSAFTSuperAncillary;
     auto [Ttilde_crit, Ttilde_min] = get_Ttilde_crit_min(m);
     auto Theta = (Ttilde - Ttilde_min) / (Ttilde_crit - Ttilde_min);
     // Bisection to find the right interval in w=1/m
