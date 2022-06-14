@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 if (MSVC)
   add_compile_options(/bigobj)
 else ()
+  add_link_options(-fno-lto)
   #add_compile_options(-Wa,-mbig-obj)
 endif ()
 

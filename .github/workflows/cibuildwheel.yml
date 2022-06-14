@@ -28,10 +28,7 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_ARCHS_MACOS: universal2
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15
-          CIBW_ENVIRONMENT_LINUX: CXX=clang++
-          CIBW_ENVIRONMENT_PASS_LINUX: CXX
           CIBW_SKIP: "*pypy*linux* *cp36* *cp37*"
-          
 
       - uses: actions/upload-artifact@v2
         with:
