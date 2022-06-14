@@ -7,7 +7,7 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 # VERSION is now read from teqpversion.hpp header file
-match = re.search(r'PCSAFTSUPERANCVERSION = \"([0-9a-z.]+)\"\;', open('pcsaftsuperancversion.cpp').read())
+match = re.search(r'PCSAFTSUPERANCVERSION = \"([0-9a-z.]+)\"\;', open('pcsaftsuperancversion.hpp').read())
 if match:
     VERSION = match.group(1)
 else:
