@@ -3,13 +3,13 @@ import textwrap
 import ChebTools
 import numpy as np
 
+root = '../output'
+
 template_crit_head = """#pragma once
 
 #include "ChebTools/ChebTools.h"
  
 namespace PCSAFTSuperAncillary{ 
-  Eigen::ArrayXd toarr(const std::vector<double>& e){ return Eigen::Map<const Eigen::ArrayXd>(&(e[0]), e.size()); }
-
   ChebTools::ChebyshevCollection cc_Ttilde{{
 """
 template_crit_foot = """  }}; 
@@ -20,7 +20,7 @@ def make_collection_contents(exps):
     for exp in exps:
         coef = str(exp['coef']).replace('[','{').replace(']','}')
         xmin, xmax = exp['xmin'], exp['xmax']
-        line = f'    {{ toarr({coef:s}), {xmin}, {xmax} }},'
+        line = f'    {{ std::vector<double>({coef:s}), {xmin}, {xmax} }},'
         s += line + '\n'
     s = s.strip(',')
     return s
@@ -43,7 +43,7 @@ def make_collection_contents_LV(exps):
     return sL, sV
 
 def write_crit():
-    j = json.load(open('output/PCSAFT_crit_pts_expansions.json', 'r'))
+    j = json.load(open(root + '/PCSAFT_crit_pts_expansions.json', 'r'))
 
     s = template_crit_head
     s += make_collection_contents(j['Ttilde'])
@@ -70,7 +70,7 @@ def build_WInterval(N, wmin, wmax):
     s += '  { // Intervals (liq)\n'
     for w in wnodes:
         m = 1/w
-        expansions = json.load(open(f'output/PCSAFT_VLE_m{m:0.12e}_expansions.json'))
+        expansions = json.load(open(root + f'/PCSAFT_VLE_m{m:0.12e}_expansions.json'))
         sL, sV = make_collection_contents_LV(expansions)
         s += textwrap.indent('{{\n' + sL + '\n}},\n', ' '*4) 
         # break
@@ -78,7 +78,7 @@ def build_WInterval(N, wmin, wmax):
     s += '  { // Intervals (vapor)\n'
     for w in wnodes:
         m = 1/w
-        expansions = json.load(open(f'output/PCSAFT_VLE_m{m:0.12e}_expansions.json'))
+        expansions = json.load(open(root + f'/PCSAFT_VLE_m{m:0.12e}_expansions.json'))
         sL, sV = make_collection_contents_LV(expansions) 
         s += textwrap.indent('{{\n' + sV + '\n}},\n', ' '*4) 
         # break
@@ -88,7 +88,7 @@ def build_WInterval(N, wmin, wmax):
 
 def write_domain():
     # Get last Wedges file
-    Wedges = json.load(open('output/Wedges_pass8.json'))['Wedges']
+    Wedges = json.load(open(root + '/Wedges_pass8.json'))['Wedges']
 
     s = template_domain_head
     s += '  // Wedges\n'
