@@ -58,11 +58,17 @@ auto get_expansion(const Eigen::ArrayXd& vals, double wmin, double wmax) {
     return ChebyshevExpansion((V16 * vals.matrix()).eval(), wmin, wmax);
 }
 
-auto PCSAFTsuperanc_rhoLV(double Ttilde, double m){
-    // 
+auto get_Ttilde_crit_min(double m){
     using namespace PCSAFTSuperAncillary;
     auto Ttilde_crit = cc_Ttilde(1/m);
     auto Ttilde_min = exp(-2.20078778)*pow(m, 0.37627892)*Ttilde_crit;
+    return std::make_tuple(Ttilde_crit, Ttilde_min);
+}
+
+auto PCSAFTsuperanc_rhoLV(double Ttilde, double m){
+    // 
+    using namespace PCSAFTSuperAncillary;
+    auto [Ttilde_crit, Ttilde_min] = get_Ttilde_crit_min(m);
     auto Theta = (Ttilde - Ttilde_min) / (Ttilde_crit - Ttilde_min);
     // Bisection to find the right interval in w=1/m
     const auto& interval = get_interval(1/m); 

@@ -13,7 +13,8 @@
 namespace py = pybind11;
 
 void init_superanc(py::module& m) {
-    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Tilde"), py::arg("m"));
+    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Ttilde"), py::arg("m"));
+    m.def("get_Ttilde_crit_min", &get_Ttilde_crit_min, py::arg("m"));
 }
 
 PYBIND11_MODULE(PCSAFTsuperanc, m) {
