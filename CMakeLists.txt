@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.12)
 project(PCSaftSuperAncillary)
 set(CMAKE_CXX_STANDARD 17)
 
+if (MSVC)
+  add_compile_options(/bigobj)
+else ()
+  add_compile_options(-Wa,-mbig-obj)
+endif ()
+
 macro(add_nix_libraries target)
     # See https://stackoverflow.com/a/29871891
     # Add DL and pthreads
@@ -46,3 +52,11 @@ target_link_libraries(fitbench ChebTools teqpinterface autodiff Catch2WithMain)
 
 add_executable(fittest test.cpp)
 target_link_libraries(fittest ChebTools teqpinterface autodiff) 
+
+pybind11_add_module(PCSAFTsuperanc "${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp")
+target_compile_definitions(PCSAFTsuperanc PUBLIC -DPYBIND11)
+target_link_libraries(PCSAFTsuperanc PUBLIC ChebTools PUBLIC teqpinterface)
+
+add_executable(PCSAFTsuperanctest "${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp")
+target_link_libraries(PCSAFTsuperanctest PUBLIC ChebTools)
+target_include_directories(PCSAFTsuperanctest PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/externals/teqp/externals/Eigen")

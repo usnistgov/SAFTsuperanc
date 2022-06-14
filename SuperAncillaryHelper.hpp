@@ -114,7 +114,7 @@ public:
         return std::make_tuple(rhoLfvals, rhoVfvals);
     }
 
-    /// Retrieve a given ChebyshevCollection for a specified value of 1/m
+    /// Retrieve a given ChebyshevCollection in Theta for a specified value of 1/m
     auto get_fitted_expansions(double m) const {
         for (auto i = 0; i < mnodes.size(); ++i) {
             if (mnodes[i] == m) {
