@@ -134,7 +134,7 @@ setup(
     author_email="ian.bell@nist.gov",
     description="Superancillary functions for the PC-SAFT EOS of Gross and Sadowski",
     long_description="",
-    ext_modules=[CMakeExtension("cmake_example")],
+    ext_modules=[CMakeExtension("PCSAFTsuperanc")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},
