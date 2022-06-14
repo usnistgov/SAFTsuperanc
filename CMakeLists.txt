@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 if (MSVC)
   add_compile_options(/bigobj)
 else ()
-  add_compile_options(-Wa,-mbig-obj)
+  #add_compile_options(-Wa,-mbig-obj)
 endif ()
 
 macro(add_nix_libraries target)
