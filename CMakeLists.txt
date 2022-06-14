@@ -36,7 +36,7 @@ endif()
 
 set(CHEBTOOLS_STATIC_LIBRARY true CACHE INTERNAL "Build ChebTools as a static library")
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/ChebTools")
-# set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/teqp")
 # set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
