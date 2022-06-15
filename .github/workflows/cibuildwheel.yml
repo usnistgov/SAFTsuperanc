@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macOS-10.15]
+        os: [windows-2019, macOS-10.15]
 
     steps:
       - uses: actions/checkout@v2
@@ -28,7 +28,7 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_ARCHS_MACOS: universal2
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15
-          CIBW_SKIP: "*linux* *cp36* *cp37*"
+          # CIBW_SKIP: "*"
 
       - uses: actions/upload-artifact@v2
         with:
