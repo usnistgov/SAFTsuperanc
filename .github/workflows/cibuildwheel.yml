@@ -32,7 +32,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: yum install -y clang || apt-get install clang
           CIBW_ENVIRONMENT_LINUX: CXX=clang++
           CIBW_ENVIRONMENT_PASS_LINUX: CXX
-          # CIBW_SKIP: "*"
+          CIBW_SKIP: "*musl*"
           
       - uses: actions/upload-artifact@v2
         with:
