@@ -4,7 +4,7 @@ This repository provides runnable, reproducible code for fitting superancillary 
 
 By Ian Bell, NIST (ian.bell@nist.gov)
 
-The outputs of running the fitting are included in the repository, but the build files (needed for Visual Studio/ninja/make, etc.) and binaries are not
+The outputs of running the fitting are included in the repository, but the build files (needed for Visual Studio/ninja/make, etc.) and binaries are not.
 
 ## Building and running
 
