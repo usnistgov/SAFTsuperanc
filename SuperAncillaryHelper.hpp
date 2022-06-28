@@ -131,8 +131,8 @@ public:
         F.col(1) = rhoVfvals;
         auto c = V16 * F;
         return std::make_tuple(
-            ChebyshevExpansion::ChebyshevExpansion(c.col(0).eval(), ymin, ymax),
-            ChebyshevExpansion::ChebyshevExpansion(c.col(1).eval(), ymin, ymax)
+            ChebyshevExpansion(c.col(0).eval(), ymin, ymax),
+            ChebyshevExpansion(c.col(1).eval(), ymin, ymax)
         );
     }
 
