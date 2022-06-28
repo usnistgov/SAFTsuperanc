@@ -39,7 +39,7 @@ auto get_funcvals(double Theta, const WInterval& interval) {
 }
 
 auto get_expansion(const Eigen::ArrayXd& vals, double wmin, double wmax) {
-    return ChebyshevExpansion((V16 * vals.matrix()).eval(), wmin, wmax);
+    return ChebyshevExpansion(std::move((V16 * vals.matrix()).eval().matrix()), wmin, wmax);
 }
 
 auto get_Ttilde_crit_min(double m){
