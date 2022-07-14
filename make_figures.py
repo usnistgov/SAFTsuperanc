@@ -347,20 +347,21 @@ def plot_rhoerr(root, domain_index, Nm):
     plt.close()
 
 if __name__ == '__main__':
-    import ChebTools
-    
+      
+    plot_critical_curvedev() ## Fig. 1
+    plot_all_VLE() ## Fig. 2
+    plot_Tmin() ## Fig. 3&4
+    plot_normalized_VLE() ## Fig. 5
+    plot_intervals() ## Fig. 6
+    plot_allrhoerr_m('output', 16, fitted=True) ## Fig. 8
+    plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit') ## Fig. 9
+    plot_allrhoerr_m('output', 16, fitted=False) ## Fig. 10
+
+    ####### TRASH CAN
+    # plot_allrhoerr('output', 16, fitted=True)
+    # plot_allrhoerr('output', 16, fitted=False)
+    # # import ChebTools
     # ce = ChebTools.ChebyshevExpansion(np.linspace(0,1,17), 1/64, 1/1)
     # print(1/ce.get_nodes_realworld())
     # quit()
-
-    # plot_critical_curve()
-    # plot_critical_curvedev()
-    # plot_all_VLE()
-    # plot_normalized_VLE()
-    # plot_intervals()
-    # plot_Tmin()
-    # plot_allrhoerr('output', 16, fitted=True)
-    # plot_allrhoerr('output', 16, fitted=False)
-    # plot_allrhoerr_m('output', 16, fitted=True)
-    # plot_allrhoerr_m('output', 16, fitted=False)
-    # plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')
+    # # plot_critical_curve() ## Fig. 
