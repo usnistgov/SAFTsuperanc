@@ -18,7 +18,7 @@ def plot_critical_curve():
     axes[1].set_yscale('log')
     plt.tight_layout(pad=0.2)
     plt.savefig('critical_values.pdf')
-    plt.show()
+    plt.close()
 
 def plot_critical_curvedev():
     j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_check.json')))
@@ -32,7 +32,7 @@ def plot_critical_curvedev():
     axes[1].set_yticks([-4,-2,0,2,4])
     plt.tight_layout(pad=0.2)
     plt.savefig('Tcritical_values_dev.pdf')
-    plt.show()
+    plt.close()
 
     fig, axes = plt.subplots(2,1,figsize=(3.3, 3), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
     axes[0].plot(j['1/m'], j['rhotilde_tab'], marker='.', ms=3)
@@ -44,7 +44,7 @@ def plot_critical_curvedev():
     axes[0].set_yscale('log')
     plt.tight_layout(pad=0.2)
     plt.savefig('rhocritical_values_dev.pdf')
-    plt.show()
+    plt.close()
 
 def get_fnames():
     fnames = glob.glob(f'{root}/PCSAFT_VLE_m*.json')
@@ -87,7 +87,7 @@ def plot_intervals():
     plt.gca().set(xlabel=r'$w=1/m$', ylabel=r'$\Theta$')
     plt.tight_layout(pad=0.2)
     plt.savefig('intervals.pdf')
-    plt.show()
+    plt.close()
 
 def plot_all_VLE():
 
@@ -168,13 +168,14 @@ def plot_Tmin():
     plt.plot(df['m'], df['Tmin_red'], 'o')
     x = np.array(df['m']); y = np.array(df['Tmin_red'])
     c = np.polyfit(np.log(x), np.log(y), 1)
+    c = [ 0.37627892, -2.20078778 ]
     m = np.geomspace(1, 100)
     plt.plot(m, np.exp(np.polyval(c, np.log(m))), dashes=[2, 2])
     plt.plot(m, np.exp(c[1])*m**c[0], dashes=[3, 1, 1, 1])
     # Fit of the form (decreasing order like in polyfit)
-    # ln(Ttildemin) = c1*ln(m) + c0
+    # ln(Ttildemin) = c0*ln(m) + c1
     # ...
-    # Ttildemin = exp(ln(m**(c1)) + c0) = exp(c0)*m**(c1)
+    # Ttildemin = exp(ln(m**(c0)) + c1) = exp(c1)*m**(c0)
     
     # plt.yscale('log')
     plt.xscale('log')
@@ -225,7 +226,7 @@ def plot_normalized_VLE():
     plt.savefig('PCSAFT_normalized_VLE.pdf')
     plt.close()
 
-def plot_allrhoerr(Nm, fitted=False):
+def plot_allrhoerr(root, Nm, fitted=False):
     for domain_index in range(8):
         if fitted:
             df = pandas.DataFrame(json.load(open(root+f'/{domain_index}PCSAFT_VLE_check_fitted_Nm16.json')))
@@ -246,7 +247,7 @@ def plot_allrhoerr(Nm, fitted=False):
         plt.savefig(f'all_fitted_devplot.pdf')
     else:
         plt.savefig(f'all_Nm{Nm}_devplot.pdf')
-    plt.show()
+    plt.close()
 
 def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
     fig, axes = plt.subplots(1,2,figsize=(6, 5),sharey=True, sharex=True)
@@ -269,7 +270,7 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             if sum(baddies) > 0:
                 print(sum(baddies), np.min(badTheta))
             sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=np.log10(1-df['Theta']), vmin=np.log10(1e-8), vmax=np.log10(1), cmap='viridis', lw=0)
-            ax.set_title(key)
+            ax.set_title('liquid' if key == 'rhotildeL' else 'vapor')
     
     axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
     axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$', xlim=(1/64,1))
@@ -304,7 +305,7 @@ def plot_allrhoerr_Theta(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             if sum(baddies) > 0:
                 print(sum(baddies), np.min(badTheta))
             sc = ax.scatter(np.log10(1-df['Theta']), np.log10(np.abs(err)), c=df['1/m'], vmin=1/64, vmax=1, cmap='viridis', lw=0)
-            ax.set_title(key)
+            ax.set_title('liquid' if key == 'rhotildeL' else 'vapor')
     
     axes[1].set(xlabel=r'$\log_{10}(1-\Theta)$')
     axes[0].set(xlabel=r'$\log_{10}(1-\Theta)$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$')
@@ -343,7 +344,7 @@ def plot_rhoerr(root, domain_index, Nm):
         plt.savefig(f'fitted_devplot.pdf')
     else:
         plt.savefig(f'Nm{Nm}_devplot.pdf')
-    plt.show()
+    plt.close()
 
 if __name__ == '__main__':
     import ChebTools
@@ -355,11 +356,11 @@ if __name__ == '__main__':
     # plot_critical_curve()
     # plot_critical_curvedev()
     # plot_all_VLE()
-    plot_normalized_VLE()
+    # plot_normalized_VLE()
     # plot_intervals()
     # plot_Tmin()
-    # plot_allrhoerr(16, fitted=True)
-    # plot_allrhoerr(16, fitted=False)
-    # plot_allrhoerr_m('bld', 16, fitted=True)
-    # plot_allrhoerr_m('bld', 16, fitted=False)
-    # plot_allrhoerr_Theta('bld', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')
+    # plot_allrhoerr('output', 16, fitted=True)
+    # plot_allrhoerr('output', 16, fitted=False)
+    # plot_allrhoerr_m('output', 16, fitted=True)
+    # plot_allrhoerr_m('output', 16, fitted=False)
+    # plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')

@@ -37,6 +37,14 @@ cmake --build .
 ./fitbench
 ```
 
+## Python package
+
+To build the python package:
+```
+python setup.py bdist_wheel
+```
+to build the binary wheel, which can then be installed with pip
+
 ## Plotting
 
 To ensure complete reproducibility, the script used to generate the figures is also included in this repository: ``make_figures.py``
