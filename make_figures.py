@@ -22,23 +22,24 @@ def plot_critical_curve():
 
 def plot_critical_curvedev():
     j = pandas.DataFrame(json.load(open(f'{root}/PCSAFT_crit_pts_check.json')))
-    fig, axes = plt.subplots(2,1,figsize=(3.3, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
-    axes[0].plot(j['1/m'], j['Ttilde_tab'])
-    axes[1].plot(j['1/m'], (j['Ttilde_tab']/j['Ttilde_fit']-1))
+    fig, axes = plt.subplots(2,1,figsize=(3.3, 3), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+    axes[0].plot(j['1/m'], j['Ttilde_tab'], marker='.', ms=3)
+    axes[1].plot(j['1/m'], (j['Ttilde_tab']/j['Ttilde_fit']-1)*1e15)
 
     axes[0].set(ylabel=r'$\widetilde{T}_{\rm crit}$')
-    axes[1].set(xlabel='$1/m$', ylabel=r'$\widetilde{T}_{\rm crit,tab}/\widetilde{T}_{\rm crit,fit}-1$')
+    axes[1].set(xlabel='$1/m$', ylabel=r'$10^{15}\delta T$')
     plt.xscale('log')
+    axes[1].set_yticks([-4,-2,0,2,4])
     plt.tight_layout(pad=0.2)
     plt.savefig('Tcritical_values_dev.pdf')
     plt.show()
 
-    fig, axes = plt.subplots(2,1,figsize=(3.3, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
-    axes[0].plot(j['1/m'], j['rhotilde_tab'])
-    axes[1].plot(j['1/m'], (j['rhotilde_tab']/j['rhotilde_fit']-1))
-
+    fig, axes = plt.subplots(2,1,figsize=(3.3, 3), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+    axes[0].plot(j['1/m'], j['rhotilde_tab'], marker='.', ms=3)
+    axes[1].plot(j['1/m'], (j['rhotilde_tab']/j['rhotilde_fit']-1)*1e13)
     axes[0].set(ylabel=r'$\widetilde{\rho}_{\rm crit}$')
-    axes[1].set(xlabel='$1/m$', ylabel=r'$\widetilde{\rho}_{\rm crit,tab}/\widetilde{\rho}_{\rm crit,fit}-1$')
+    axes[1].set(xlabel='$1/m$', ylabel=r'$10^{13}\delta \rho$')
+    axes[1].set_yticks([-2,0,2])
     plt.xscale('log')
     axes[0].set_yscale('log')
     plt.tight_layout(pad=0.2)
@@ -101,8 +102,21 @@ def plot_all_VLE():
         Ttildemin = np.min(df['Ttilde'])
         
         Tred = df['Ttilde']/j['Ttildec']
+
+        density_ratio = df['rhotildeL']/df['rhotildeV']
+        iargmax = np.argmax(density_ratio)
+        if iargmax != len(density_ratio)-1:
+            df = df.iloc[0:iargmax+1].copy()
+        Tred = df['Ttilde']/j['Ttildec']
+        density_ratio = df['rhotildeL']/df['rhotildeV']
+
         line, = plt.plot(df['rhotildeL']/j['rhotildec'], Tred, label='')
         plt.plot(df['rhotildeV']/j['rhotildec'], Tred, color=line.get_color())
+
+        if m == 64:
+            print(m)
+            plt.text(5.7, 0.7, '$m=64$', color=line.get_color())
+
     plt.axvline(1.0, dashes=[1,1])
     plt.gca().set(
         xlabel=r'$\widetilde{\rho}/\widetilde{\rho}_{\rm crit}$', 
@@ -121,13 +135,21 @@ def plot_Tmin():
         arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
         df = pandas.DataFrame({k:j[k] for k in arrays})
         m = j['m']
+        density_ratio = df['rhotildeL']/df['rhotildeV']
+        iargmax = np.argmax(density_ratio)
+        if iargmax != len(density_ratio)-1:
+            df = df.iloc[0:iargmax+1].copy()
         Tred = df['Ttilde']/j['Ttildec']
-        line, = plt.plot(df['rhotildeL']/j['rhotildeV'], Tred, label='')
+        density_ratio = df['rhotildeL']/df['rhotildeV']
+        line, = plt.plot(density_ratio, Tred, label='')
         try:
             Tmin_red = float(scipy.interpolate.interp1d(df['rhotildeL']/df['rhotildeV'], Tred)(1e20))
             ooo.append({'m': j['m'], 'Tmin_red': Tmin_red})
         except:
             pass
+
+        if m == 64:
+            plt.text(1e17, 0.57, '$m=64$', color=line.get_color())
     # plt.legend(loc='best')
     plt.xscale('log')
     plt.xlim(1, 1e40)
@@ -149,10 +171,10 @@ def plot_Tmin():
     m = np.geomspace(1, 100)
     plt.plot(m, np.exp(np.polyval(c, np.log(m))), dashes=[2, 2])
     plt.plot(m, np.exp(c[1])*m**c[0], dashes=[3, 1, 1, 1])
-    # Fit of the form
-    # ln(Ttildemin) = c0*ln(m) + c1
+    # Fit of the form (decreasing order like in polyfit)
+    # ln(Ttildemin) = c1*ln(m) + c0
     # ...
-    # Ttildemin = exp(ln(m**(c0)) + c1) = exp(c1)*m**(c0)
+    # Ttildemin = exp(ln(m**(c1)) + c0) = exp(c0)*m**(c1)
     
     # plt.yscale('log')
     plt.xscale('log')
@@ -181,6 +203,9 @@ def plot_normalized_VLE():
         
         line, = axL.plot(df['rhotildeL']/j['rhotildec'], Theta, label='')
         axV.plot(df['rhotildeV']/j['rhotildec'], Theta, color=line.get_color())
+
+        if m == 64:
+            axL.text(4,0.8,'$m=64$',color=line.get_color())
 
     axV.set(
         ylabel=r'$\Theta=(\widetilde{T}-\widetilde{T}_{\rm min})/(\widetilde{T}_{\rm crit}-\widetilde{T}_{\rm min})$'
@@ -330,11 +355,11 @@ if __name__ == '__main__':
     # plot_critical_curve()
     # plot_critical_curvedev()
     # plot_all_VLE()
-    # plot_normalized_VLE()
+    plot_normalized_VLE()
     # plot_intervals()
     # plot_Tmin()
     # plot_allrhoerr(16, fitted=True)
     # plot_allrhoerr(16, fitted=False)
     # plot_allrhoerr_m('bld', 16, fitted=True)
     # plot_allrhoerr_m('bld', 16, fitted=False)
-    plot_allrhoerr_Theta('bld', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')
+    # plot_allrhoerr_Theta('bld', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit')
