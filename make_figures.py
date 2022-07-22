@@ -1,7 +1,8 @@
-import glob
+import glob, os
 import pandas, json, matplotlib.pyplot as plt, numpy as np
 import scipy.interpolate
 import re
+import ChebTools
 plt.style.use('classic')
 plt.style.use('mystyle.mplstyle')
 
@@ -51,27 +52,32 @@ def get_fnames():
     ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames if '_expansions' not in fname]))
     return names
 
-def get_fnames_edges():
+def get_last_Wedges():
     Wedge_files = glob.glob(f'{root}/Wedges_pass*.json')
     def get_pass(f):
         match = re.search(r'Wedges_pass([0-9]+).json', f).group(1)
         return int(match)
     Wedge_filess = sorted(Wedge_files, key=get_pass)
     fname = Wedge_filess[-1]
-    import os
+    return fname
+
+def get_fnames_edges():
+    fname = get_last_Wedges()
     fnames = [f'{root}/PCSAFT_VLE_m{1/f:0.6f}.json' for f in json.load(open(fname))["Wedges"]]
     assert(all([os.path.exists(f) for f in fnames]))
     ms, names = zip(*sorted([(json.load(open(fname))['m'], fname) for fname in fnames if '_expansions' not in fname]))
     return names
 
+def get_fnames_interval(i, *, Nw):
+    Wedges = json.load(open(get_last_Wedges()))['Wedges']
+    Wmin, Wmax = Wedges[i], Wedges[i+1]
+    ws = ChebTools.ChebyshevExpansion([1.0]*(Nw+1), Wmin, Wmax).get_nodes_realworld()
+    fnames = [f'{root}/PCSAFT_VLE_m{1/w:0.12e}_expansions.json' for w in ws]
+    assert(all([os.path.exists(f) for f in fnames]))
+    return fnames, ws
+
 def get_fnames_edge_expansions():
-    Wedge_files = glob.glob(f'{root}/Wedges_pass*.json')
-    def get_pass(f):
-        match = re.search(r'Wedges_pass([0-9]+).json', f).group(1)
-        return int(match)
-    Wedge_filess = sorted(Wedge_files, key=get_pass)
-    fname = Wedge_filess[-1]
-    import os
+    fname = get_last_Wedges()
     fnames = [f'{root}/PCSAFT_VLE_m{1/f:0.12e}_expansions.json' for f in json.load(open(fname))["Wedges"]]
     assert(all([os.path.exists(f) for f in fnames]))
     return fnames, json.load(open(fname))["Wedges"]
@@ -84,8 +90,21 @@ def plot_intervals():
         edges += [ex['xmax'] for ex in j]
         edges = list(set(sorted(edges)))
         plt.plot(w*np.ones_like(edges), edges, 'o')
+
+    # Thin lines for w
+    i = 4
+    for f, w in zip(*get_fnames_interval(i, Nw=16)):
+        j = json.load(open(f))
+        edges = [ex['xmin'] for ex in j]
+        edges += [ex['xmax'] for ex in j]
+        edges = list(set(sorted(edges)))
+        plt.plot(w*np.ones_like(edges), edges, 'k.', ms=1)
+
     plt.gca().set(xlabel=r'$w=1/m$', ylabel=r'$\Theta$')
     plt.tight_layout(pad=0.2)
+    plt.xscale('log')
+    plt.gcf().text(0.19, 0.99, '$m=64$', ha='left', va='top', fontsize=6, color='b')
+    plt.gcf().text(0.92, 0.99, '$m=1$', ha='left', va='top', fontsize=6, color='c')
     plt.savefig('intervals.pdf')
     plt.close()
 
@@ -103,26 +122,38 @@ def plot_all_VLE():
         
         Tred = df['Ttilde']/j['Ttildec']
 
-        density_ratio = df['rhotildeL']/df['rhotildeV']
-        iargmax = np.argmax(density_ratio)
-        if iargmax != len(density_ratio)-1:
+        rhoL = df['rhotildeL']
+        iargmax = np.argmax(rhoL)
+        if iargmax != len(rhoL)-1:
             df = df.iloc[0:iargmax+1].copy()
         Tred = df['Ttilde']/j['Ttildec']
-        density_ratio = df['rhotildeL']/df['rhotildeV']
 
         line, = plt.plot(df['rhotildeL']/j['rhotildec'], Tred, label='')
         plt.plot(df['rhotildeV']/j['rhotildec'], Tred, color=line.get_color())
 
         if m == 64:
-            print(m)
             plt.text(5.7, 0.7, '$m=64$', color=line.get_color())
 
-    plt.axvline(1.0, dashes=[1,1])
+        x = (df['rhotildeL']/j['rhotildec']).iloc[-1]
+        angle = -40
+        if m == 1:
+            x -= 0.9
+            angle = 60
+        if abs(m-1.3) < 0.1:
+            x -= 0.45
+            y -= 0.1
+            angle = 60
+        y = Tred.iloc[-1]
+        plt.text(x, y, f'${m:0.1f}\dots$', color=line.get_color(),ha='left',va='top',rotation=angle,fontsize=6)
+
+    plt.axvline(1.0, dashes=[1, 1])
     plt.gca().set(
         xlabel=r'$\widetilde{\rho}/\widetilde{\rho}_{\rm crit}$', 
         ylabel=r'$\widetilde{T}/\widetilde{T}_{\rm crit}$'
     )
     # plt.legend(loc='best', ncol=3, fontsize=4)
+    plt.ylim(0,1)
+    plt.xlim(0,11)
     plt.tight_layout(pad=0.2)
     plt.savefig('PCSAFT_all_VLE.pdf')
     plt.close()
@@ -348,14 +379,14 @@ def plot_rhoerr(root, domain_index, Nm):
 
 if __name__ == '__main__':
       
-    plot_critical_curvedev() ## Fig. 1
-    plot_all_VLE() ## Fig. 2
-    plot_Tmin() ## Fig. 3&4
-    plot_normalized_VLE() ## Fig. 5
+    # plot_critical_curvedev() ## Fig. 1
+    # plot_all_VLE() ## Fig. 2
+    # plot_Tmin() ## Fig. 3&4
+    # plot_normalized_VLE() ## Fig. 5
     plot_intervals() ## Fig. 6
-    plot_allrhoerr_m('output', 16, fitted=True) ## Fig. 8
-    plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit') ## Fig. 9
-    plot_allrhoerr_m('output', 16, fitted=False) ## Fig. 10
+    # plot_allrhoerr_m('output', 16, fitted=True) ## Fig. 8
+    # plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit') ## Fig. 9
+    # plot_allrhoerr_m('output', 16, fitted=False) ## Fig. 10
 
     ####### TRASH CAN
     # plot_allrhoerr('output', 16, fitted=True)
