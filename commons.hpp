@@ -6,7 +6,7 @@
 // Global values, they cancel out; pick whatever you like
 const double sigma_m = 1.0e-10;
 const double epsilon_over_k_K = 100;
-const double N_A = 6.022e23; // More digits are not important, they cancel
+const double N_A = 6.02214076e23; // According to CODATA, the final answer
 
 const auto dblepsilon = std::numeric_limits<double>::epsilon();
 
