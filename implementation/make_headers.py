@@ -53,7 +53,6 @@ def write_crit():
         fp.write(s)
 
 template_domain_head = """namespace PCSAFTSuperAncillary{ 
-  auto toarr2(const std::initializer_list<double>& e){ return e; }
 """
 template_domain_foot = """  CompleteWInterval domain{
     Wedges,

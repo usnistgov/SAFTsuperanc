@@ -4,6 +4,8 @@
 
 #include "pcsaftsuperancversion.hpp"
 
+#include "teqp/constants.hpp"
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
@@ -20,6 +22,7 @@ void init_superanc(py::module& m) {
 PYBIND11_MODULE(PCSAFTsuperanc, m) {
     m.doc() = "SAFTsuperanc: Superancillary equations for the PC-SAFT EOS of Gross and Sadowski";
     m.attr("__version__") = PCSAFTSUPERANCVERSION;
+    m.attr("N_A") = teqp::N_A;
     init_superanc(m);
 }
 
