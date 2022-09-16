@@ -1,1 +1,1 @@
-std::string PCSAFTSUPERANCVERSION = "0.0.6";
+std::string PCSAFTSUPERANCVERSION = "0.0.7";
