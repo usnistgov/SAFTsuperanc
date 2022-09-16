@@ -44,7 +44,7 @@ auto get_expansion(const Eigen::ArrayXd& vals, double wmin, double wmax) {
 }
 
 auto get_Ttilde_crit_min(double m){
-    auto wmin = cc.get_exps()[0].xmin(), wmax = cc.get_exps().back().xmax();
+    auto wmin = cc_Ttilde.get_exps()[0].xmin(), wmax = cc_Ttilde.get_exps().back().xmax();
     auto mmin = 1/wmax, mmax = 1/wmin;
     if (m < mmin){
         throw std::invalid_argument("Provided value of m of " + std::to_string(m) + " is less than min of "+ std::to_string(mmin));
