@@ -53,8 +53,18 @@ target_link_libraries(fitbench ChebTools teqpinterface autodiff Catch2WithMain)
 add_executable(fittest test.cpp)
 target_link_libraries(fittest ChebTools teqpinterface autodiff) 
 
-pybind11_add_module(PCSAFTsuperanc "${CMAKE_CURRENT_SOURCE_DIR}/implementation/interface.cpp")
-target_compile_definitions(PCSAFTsuperanc PUBLIC -DPYBIND11)
+# For python version 3.8+ use nanobind
+if ((Python_VERSION_MAJOR GREATER_EQUAL 3) AND (Python_VERSION_MINOR GREATER_EQUAL 8))
+  # Now import nanobind from CMake
+  add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/nanobind")
+  find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+  nanobind_add_module(PCSAFTsuperanc NB_STATIC "${CMAKE_CURRENT_SOURCE_DIR}/implementation/interface.cpp")
+  target_compile_definitions(PCSAFTsuperanc PUBLIC -DNANOBIND)  
+else()
+  pybind11_add_module(PCSAFTsuperanc "${CMAKE_CURRENT_SOURCE_DIR}/implementation/interface.cpp")
+  target_compile_definitions(PCSAFTsuperanc PUBLIC -DPYBIND11)
+endif()
+
 target_link_libraries(PCSAFTsuperanc PUBLIC ChebTools PUBLIC teqpinterface)
 # if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 #   include(CheckIPOSupported)

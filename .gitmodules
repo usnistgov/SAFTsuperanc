@@ -4,3 +4,6 @@
 [submodule "externals/ChebTools"]
 	path = externals/ChebTools
 	url = https://github.com/usnistgov/ChebTools.git
+[submodule "externals/nanobind"]
+	path = externals/nanobind
+	url = https://github.com/wjakob/nanobind.git

@@ -1,30 +1,45 @@
 #include "PCSAFTsuperancillary_implementation.hpp"
 
-#if defined(PYBIND11)
-
 #include "pcsaftsuperancversion.hpp"
 
 #include "teqp/constants.hpp"
 
+#if defined(PYBIND11) || defined(NANOBIND)
+
+#if defined(PYBIND11)
+
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/operators.h>
-#include <pybind11/functional.h>
-#include <pybind11/eigen.h>
 
 namespace py = pybind11;
-
-void init_superanc(py::module& m) {
-    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Ttilde"), py::arg("m"));
-    m.def("get_Ttilde_crit_min", &get_Ttilde_crit_min, py::arg("m"));
-}
 
 PYBIND11_MODULE(PCSAFTsuperanc, m) {
     m.doc() = "SAFTsuperanc: Superancillary equations for the PC-SAFT EOS of Gross and Sadowski";
     m.attr("__version__") = PCSAFTSUPERANCVERSION;
     m.attr("N_A") = teqp::N_A;
-    init_superanc(m);
+
+    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Ttilde"), py::arg("m"));
+    m.def("get_Ttilde_crit_min", &get_Ttilde_crit_min, py::arg("m"));
+
 }
+
+#elif defined(NANOBIND)
+
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/string.h>
+
+namespace py = nanobind;
+
+NB_MODULE(PCSAFTsuperanc, m) {
+    m.attr("__doc__") = "SAFTsuperanc: Superancillary equations for the PC-SAFT EOS of Gross and Sadowski";
+    m.attr("__version__") = PCSAFTSUPERANCVERSION;
+    m.attr("N_A") = teqp::N_A;
+
+    m.def("PCSAFTsuperanc_rhoLV", &PCSAFTsuperanc_rhoLV, py::arg("Ttilde"), py::arg("m"));
+    m.def("get_Ttilde_crit_min", &get_Ttilde_crit_min, py::arg("m"));
+}
+
+#endif
 
 #else 
 
