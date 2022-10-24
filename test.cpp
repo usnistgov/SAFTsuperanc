@@ -148,5 +148,5 @@ int main() {
 
 	// For an expansion of degree N, the worst-case error should be at or close to the odd Chebyshev-Lobatto nodes of degree 2N
 	// (the even ones should be good to numerical precision)
-	//test_VLE<16, node_options::worst>(mmin, mmax, m_split, "PCSAFT_VLE_check_worstcase_Nm16.json");
+	test_VLE<16, node_options::worst>(mmin, mmax, m_split, "PCSAFT_VLE_check_worstcase_Nm16.json");
 }

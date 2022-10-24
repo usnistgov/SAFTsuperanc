@@ -268,7 +268,7 @@ def plot_allrhoerr(root, Nm, fitted=False):
         baddies = ~np.isfinite(err)
         if sum(baddies) > 0:
             print(sum(baddies))
-        sc = plt.scatter(df['Theta'], np.log10(np.abs(err)), c=df['1/m'], vmin=1/64, vmax=1/1, cmap='viridis', lw=0)
+        sc = plt.scatter(df['Theta'], np.abs(err), c=df['1/m'], vmin=1/64, vmax=1/1, cmap='viridis', lw=0)
     
     plt.gca().set(xlabel=r'$\Theta$', ylabel=r'$\log_{10}(|err|)$', xlim=(0,1))
     cb = plt.colorbar()
@@ -300,23 +300,30 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             badTheta = df.loc[baddies,'Theta']
             if sum(baddies) > 0:
                 print(sum(baddies), np.min(badTheta))
-            sc = ax.scatter(df['1/m'], np.log10(np.abs(err)), c=np.log10(1-df['Theta']), vmin=np.log10(1e-8), vmax=np.log10(1), cmap='viridis', lw=0)
+            sc = ax.scatter(df['1/m'], np.abs(err), c=np.log10(1-df['Theta']), vmin=np.log10(1e-8), vmax=np.log10(1), cmap='viridis', lw=0)
             ax.set_title('liquid' if key == 'rhotildeL' else 'vapor')
     
     axes[1].set(xlabel=r'$1/m$', xlim=(1/64,1))
-    axes[0].set(xlabel=r'$1/m$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$', xlim=(1/64,1))
+    axes[0].set(xlabel=r'$1/m$', ylabel=r'$|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\log_{10}(1-\Theta)$')
-    axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
+    axes[1].set_ylim(bottom=9e-17, top=maxerr*1.01)
     plt.tight_layout(pad=0.2)
+    axes[1].set_yscale('log')
+    for ax in axes:
+        ax.set_xlim(0,1)
+        ax.axhline(2.2e-16, dashes=[2, 2])
+        ax.text(0.7, 2.2e-16, r'$\varepsilon_{\rm double}$', va='bottom')
     if fitted:
+        axes[0].text(0.5, 1e-7, r'$\uparrow\uparrow\uparrow$'+'\n near critical region', ha='center', va='center')
+        axes[0].text(0.5, 1e-11, "\n ''normal'' region\n"+r'$\downarrow\downarrow\downarrow$', ha='center', va='center')
         plt.savefig(f'all_fitted_devplot_funcm{suffix}.pdf')
     else:
         plt.savefig(f'all_Nm{Nm}_devplot_funcm{suffix}.pdf')
     plt.close()
 
 def plot_allrhoerr_Theta(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
-    fig, axes = plt.subplots(1,2,figsize=(6, 5),sharey=True, sharex=True)
+    fig, axes = plt.subplots(1,2,figsize=(6.5, 5),sharey=True, sharex=True)
     maxerr = 0
     for domain_index in range(10):
         if fitted:
@@ -335,15 +342,20 @@ def plot_allrhoerr_Theta(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
             badTheta = df.loc[baddies,'Theta']
             if sum(baddies) > 0:
                 print(sum(baddies), np.min(badTheta))
-            sc = ax.scatter(np.log10(1-df['Theta']), np.log10(np.abs(err)), c=df['1/m'], vmin=1/64, vmax=1, cmap='viridis', lw=0)
+            sc = ax.scatter(1-df['Theta'], np.abs(err), c=df['1/m'], vmin=1/64, vmax=1, cmap='viridis', lw=0)
             ax.set_title('liquid' if key == 'rhotildeL' else 'vapor')
+    if 'crit' in suffix:
+        axes[0].text(1e-4, 1e-9, r'$\leftarrow$ critical point    low $T$ $\rightarrow$', ha='center')
     
-    axes[1].set(xlabel=r'$\log_{10}(1-\Theta)$')
-    axes[0].set(xlabel=r'$\log_{10}(1-\Theta)$', ylabel=r'$\log_{10}(|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|)$')
+    axes[1].set(xlabel=r'$1-\Theta$')
+    axes[0].set(xlabel=r'$1-\Theta$', ylabel=r'$|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|$')
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$1/m$')
     # axes[1].set_ylim(bottom=np.log10(9e-17), top=np.log10(maxerr*1.01))
     plt.tight_layout(pad=0.2)
+    axes[0].set_yscale('log')
+    axes[0].set_xscale('log')
+
     if fitted:
         plt.savefig(f'all_fitted_devplot_funcTheta{suffix}.pdf')
     else:
@@ -383,10 +395,10 @@ if __name__ == '__main__':
     # plot_all_VLE() ## Fig. 2
     # plot_Tmin() ## Fig. 3&4
     # plot_normalized_VLE() ## Fig. 5
-    plot_intervals() ## Fig. 6
-    # plot_allrhoerr_m('output', 16, fitted=True) ## Fig. 8
-    # plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit') ## Fig. 9
-    # plot_allrhoerr_m('output', 16, fitted=False) ## Fig. 10
+    # plot_intervals() ## Fig. 6
+    plot_allrhoerr_m('output', 16, fitted=True) ## Fig. 8
+    plot_allrhoerr_Theta('output', 16, fitted=True, Theta_cutoff=0.99, suffix='_nearcrit') ## Fig. 9
+    plot_allrhoerr_m('output', 16, fitted=False) ## Fig. 10
 
     ####### TRASH CAN
     # plot_allrhoerr('output', 16, fitted=True)
