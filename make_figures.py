@@ -307,9 +307,9 @@ def plot_allrhoerr_m(root, Nm, fitted=False, Theta_cutoff=0.0, suffix=''):
     axes[0].set(xlabel=r'$1/m$', ylabel=r'$|\rho^\alpha_{\rm mp}/\rho^\alpha_{\rm SA}-1|$', xlim=(1/64,1))
     cb = plt.colorbar(sc, ax=axes[1])
     cb.set_label(r'$\log_{10}(1-\Theta)$')
+    axes[1].set_yscale('log')
     axes[1].set_ylim(bottom=9e-17, top=maxerr*1.01)
     plt.tight_layout(pad=0.2)
-    axes[1].set_yscale('log')
     for ax in axes:
         ax.set_xlim(0,1)
         ax.axhline(2.2e-16, dashes=[2, 2])
