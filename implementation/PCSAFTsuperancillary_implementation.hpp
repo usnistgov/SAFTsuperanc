@@ -47,10 +47,12 @@ auto get_Ttilde_crit_min(double m){
     auto wmin = cc_Ttilde.get_exps()[0].xmin(), wmax = cc_Ttilde.get_exps().back().xmax();
     auto mmin = 1/wmax, mmax = 1/wmin;
     if (m < mmin){
-        throw std::invalid_argument("Provided value of m of " + std::to_string(m) + " is less than min of "+ std::to_string(mmin));
+        throw std::invalid_argument("Provided value of m of " + std::to_string(m)
+         + " is less than min of "+ std::to_string(mmin));
     }
     if (m > mmax){
-        throw std::invalid_argument("Provided value of m of " + std::to_string(m) + " is greater than max of "+ std::to_string(mmax));
+        throw std::invalid_argument("Provided value of m of " + std::to_string(m) 
+        + " is greater than max of "+ std::to_string(mmax));
     }
     auto Ttilde_crit = cc_Ttilde(1/m);
     auto Ttilde_min = exp(-2.20078778)*pow(m, 0.37627892)*Ttilde_crit;
@@ -61,10 +63,12 @@ auto PCSAFTsuperanc_rhoLV(double Ttilde, double m){
     auto [Ttilde_crit, Ttilde_min] = get_Ttilde_crit_min(m);
     auto Theta = (Ttilde - Ttilde_min) / (Ttilde_crit - Ttilde_min);
     if (Ttilde < Ttilde_min){
-        throw std::invalid_argument("Provided value of Ttilde of " + std::to_string(Ttilde) + " is less than min of "+ std::to_string(Ttilde_min));
+        throw std::invalid_argument("Provided value of Ttilde of " + std::to_string(Ttilde) 
+        + " is less than min of "+ std::to_string(Ttilde_min));
     }
     if (Ttilde > Ttilde_crit){
-        throw std::invalid_argument("Provided value of Ttilde of " + std::to_string(Ttilde) + " is greater than max of "+ std::to_string(Ttilde_crit));
+        throw std::invalid_argument("Provided value of Ttilde of " + std::to_string(Ttilde) 
+        + " is greater than max of "+ std::to_string(Ttilde_crit));
     }
 
     // Bisection to find the right interval in w=1/m
