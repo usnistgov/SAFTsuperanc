@@ -4,7 +4,7 @@ class Evaluator:
     mmin, mmax = 1, 64
     ymin, ymax = 1/mmax, 1/mmin # y=1/m
     expsL, expsV = [], []
-    N = 64 # degree in 1/m direction
+    N = 16 # degree in 1/m direction
     k = np.arange(0,N+1,1)
     ynodes = (ymax-ymin)/2*np.cos(k*np.pi/N) + (ymin+ymax)/2
     mnodes = 1/ynodes
@@ -15,7 +15,7 @@ class Evaluator:
         """ Unpack the expansions """
         for m in self.mnodes:
             L, V = [], []
-            for ex in json.load(open(f'bld/PCSAFT_VLE_m{m:0.6f}_expansions.json')):
+            for ex in json.load(open(f'output/PCSAFT_VLE_m{m:0.12e}_expansions.json')):
                 L.append(ChebTools.ChebyshevExpansion(ex['coefL'],ex['xmin'],ex['xmax']))
                 V.append(ChebTools.ChebyshevExpansion(ex['coefV'],ex['xmin'],ex['xmax']))
             self.expsL.append(ChebTools.ChebyshevCollection(L))
@@ -47,7 +47,7 @@ plt.legend()
 plt.show()
 
 import pandas
-j = json.load(open(f'bld/PCSAFT_VLE_m{m:06f}.json'))
+j = json.load(open(f'output/PCSAFT_VLE_m{m:0.12e}.json'))
 arrays = ['Ttilde', 'rhotildeL', 'rhotildeV']
 Ttildec = j['Ttildec']
 
