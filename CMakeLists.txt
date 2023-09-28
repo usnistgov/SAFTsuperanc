@@ -38,6 +38,7 @@ set(CHEBTOOLS_STATIC_LIBRARY true CACHE INTERNAL "Build ChebTools as a static li
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/ChebTools")
 set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+set(TEQP_NO_TESTS true CACHE INTERNAL "Remove the Catch2 targets")
 add_subdirectory ("${CMAKE_CURRENT_SOURCE_DIR}/externals/teqp")
 # set_property(TARGET ChebTools PROPERTY POSITION_INDEPENDENT_CODE ON)
 
